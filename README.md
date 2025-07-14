@@ -39,7 +39,7 @@ You can find and download the dataset here:
 
 Below is the proposed workflow and the models I plan to explore, based on reviewing multiple research papers and comparing results:
 
-![Workflow](./images/Workflow.png)
+![Workflow](./Img/Workflow.png)
 
 ---
 
