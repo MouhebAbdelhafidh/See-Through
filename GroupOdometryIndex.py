@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 
 # Create output directory
-os.makedirs("ProcessedData", exist_ok=True)
+os.makedirs("ProcessedNonStaticData", exist_ok=True)
 
 # Define dtype for processed detections
 detection_dtype = np.dtype([
@@ -123,7 +123,7 @@ def process_sequence(sequence_dir, output_path):
                     detections_ds[detection_idx:detection_idx + (end-start)] = detections
                     detection_idx += (end - start)
                     
-# Process first 5 sequences
+# Process all 158 sequences
 base_dir = "RadarScenes/data"  # Change to your dataset path
 sequences = [f"sequence_{i}" for i in range(1, 159)]
 

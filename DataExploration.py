@@ -115,7 +115,7 @@ class RadarScenesAnalyzer:
 
 # === Main entry ===
 if __name__ == "__main__":
-    base_path = 'RadarScenes/data' 
+    base_path = 'NonStaticData' 
 
     analyzer = RadarScenesAnalyzer(base_path)
     analyzer.process_sequences()
@@ -123,5 +123,5 @@ if __name__ == "__main__":
     # counts = analyzer.get_class_counts()
     # print("Class counts:", counts)
 
-    # analyzer.plot_distribution()
+    analyzer.plot_distribution()
     # analyzer.get_missing_data()
