@@ -1,3 +1,10 @@
+# Original Dataset
 RadarScenes/
+# Grouped by odmetting index Dataset
 ProcessedData/
+# No static points Dataset
 NonStaticData/
+# Only moving objects Dataset (Filtered by Velocity: Threshold = 0.1)
+MovingObjectsData/
+# Normlized Dataset (Good only for model training, not good for tracking)
+NormlizedData/

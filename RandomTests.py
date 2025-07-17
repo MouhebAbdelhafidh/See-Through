@@ -130,16 +130,14 @@ class Tests:
         plt.show()
 
         
-tests = Tests(data_folder="NonStaticData")
 
-# Show sensors for sequence 10
-tests.show_sensors_per_frame(seq_num=10)
+        
+tests = Tests(data_folder="NormlizedData")
 
-# Plot 2D sliding window for sequence 10, frame 15
-tests.plot_frame_2d(seq_num=10, frame_idx=15, window_size=2)
+# tests.show_sensors_per_frame(seq_num=10)
 
-# Visualize 3D sliding window for sequence 10, frame 15
-tests.visualize_frame_3d(seq_num=10, frame_idx=15, window_size=2)
+#tests.plot_frame_2d(seq_num=125, frame_idx=145, window_size=2)
 
-# Plot histogram across all sequences in the folder
+# tests.visualize_frame_3d(seq_num=10, frame_idx=15, window_size=2)
+
 tests.plot_class_distribution()
