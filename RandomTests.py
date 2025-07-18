@@ -148,7 +148,7 @@ class Tests:
 
         print(json.dumps(summary, indent=4))
 
-    def compare_real_vs_generated(self, real_path, fake_path, label_id=0):
+    def compare_real_vs_generated(self, real_path, fake_path, label_id=1):
         def load_points(h5_path, label_id):
             with h5py.File(h5_path, 'r') as f:
                 detections = f['detections'][:]
@@ -164,7 +164,7 @@ class Tests:
         plt.figure(figsize=(12, 6))
         plt.subplot(1, 2, 1)
         plt.scatter(x_real, y_real, s=5, c='blue', alpha=0.6)
-        plt.title('Real Data (label_id=0)')
+        plt.title('Real Data')
         plt.xlabel('x_cc')
         plt.ylabel('y_cc')
         plt.axis('equal')
@@ -176,6 +176,34 @@ class Tests:
         plt.ylabel('y_cc')
         plt.axis('equal')
 
+        plt.tight_layout()
+        plt.show()
+
+    def plot_feature_distributions(self, real_path, fake_path, label_id=None, features=None, bins=50):
+        if features is None:
+            features = ["x_cc", "y_cc", "rcs", "vr", "vr_compensated"]
+
+        def load_selected_features(h5_path, label_id, features):
+            with h5py.File(h5_path, 'r') as f:
+                detections = f['detections'][:]
+                if label_id is not None and 'label_id' in detections.dtype.names:
+                    detections = detections[detections['label_id'] == label_id]
+                return {feat: detections[feat] for feat in features if feat in detections.dtype.names}
+
+        real_data = load_selected_features(real_path, label_id, features)
+        fake_data = load_selected_features(fake_path, label_id, features)
+
+        n = len(features)
+        plt.figure(figsize=(5 * n, 5))
+        for i, feat in enumerate(features):
+            plt.subplot(1, n, i + 1)
+            plt.hist(real_data[feat], bins=bins, alpha=0.6, label='Real', color='blue', density=True)
+            plt.hist(fake_data[feat], bins=bins, alpha=0.6, label='Generated', color='green', density=True)
+            plt.title(f"Distribution of {feat}")
+            plt.xlabel(feat)
+            plt.ylabel("Density")
+            plt.legend()
+            plt.grid(True)
         plt.tight_layout()
         plt.show()
 
@@ -198,7 +226,13 @@ if __name__ == "__main__":
 
     # Test 5: GAN vs real
     # tests.compare_real_vs_generated(
-    #     real_path="NormlizedData/sequence_99.h5",
-    #     fake_path="DataPreprocessing/generated_label0_data.h5",
-    #     label_id=0
+    #     real_path="NormlizedData/sequence_23.h5",
+    #     fake_path="DataPreprocessing/FakeData/sequence_23_fake_label8.h5",
+    #     label_id=8
     # )
+
+    tests.plot_feature_distributions(
+    real_path="NormlizedData/sequence_23.h5",
+    fake_path="DataPreprocessing/FakeData/sequence_23_fake_label8.h5",
+    label_id=8  # Optional, set to None to ignore class filtering
+    )
