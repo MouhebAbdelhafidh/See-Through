@@ -19,7 +19,7 @@ class RadarScenesAnalyzer:
         for seq in sorted(os.listdir(self.base_path)):
             seq_path = os.path.join(self.base_path, seq)
 
-            # Skip non-directory files like sensors.json
+            # Skip non-directory files 
             if not os.path.isdir(seq_path):
                 continue
 

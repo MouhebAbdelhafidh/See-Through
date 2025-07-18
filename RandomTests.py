@@ -1,15 +1,15 @@
 import os
 import h5py
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import open3d as o3d
 
 class Tests:
-    def __init__(self, data_folder="NonStaticData"):
+    def __init__(self, data_folder="DataPreprocessing"):
         self.data_folder = data_folder
-        
-        # RadarScenes color mapping (normalized RGB)
+
         self.class_colors = np.array([
             [255, 0, 0],    # 0: car
             [255, 165, 0],  # 1: large vehicle
@@ -24,7 +24,7 @@ class Tests:
             [128, 128, 128],# 10: other dynamic
             [64, 64, 64]    # 11: static
         ]) / 255.0
-        
+
         self.class_names = [
             "Car", "Large Vehicle", "Truck", "Bus", "Train",
             "Bicycle", "Motorcycle", "Pedestrian", "Pedestrian Group",
@@ -32,7 +32,6 @@ class Tests:
         ]
 
     def _load_sequence(self, seq_num):
-        """Load frames and detections for a given sequence number."""
         seq_file = os.path.join(self.data_folder, f"sequence_{seq_num}.h5")
         if not os.path.exists(seq_file):
             raise FileNotFoundError(f"Sequence file {seq_file} not found.")
@@ -89,21 +88,6 @@ class Tests:
 
         plt.show()
 
-    def visualize_frame_3d(self, seq_num, frame_idx, window_size=2):
-        merged_points = self.get_window_detections(seq_num, frame_idx, window_size)
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(
-            np.column_stack([merged_points["x_cc"], merged_points["y_cc"], np.zeros_like(merged_points["x_cc"])])
-        )
-        colors = self.class_colors[merged_points["label_id"]]
-        pcd.colors = o3d.utility.Vector3dVector(colors)
-
-        ego = o3d.geometry.TriangleMesh.create_sphere(radius=0.5)
-        ego.paint_uniform_color([0, 0, 0])
-        ego.translate([0, 0, 0])
-
-        o3d.visualization.draw_geometries([pcd, ego], window_name=f"Sequence {seq_num} Frame {frame_idx} ± {window_size}")
-
     def plot_class_distribution(self):
         class_counts = np.zeros(len(self.class_names), dtype=int)
         for filename in os.listdir(self.data_folder):
@@ -129,15 +113,92 @@ class Tests:
 
         plt.show()
 
-        
+    def extract_h5_summary(self, file_path, max_frames=5):
+        with h5py.File(file_path, 'r') as f:
+            detections = f['detections'][:]
+            frames = f['frames'][:]
 
-        
-tests = Tests(data_folder="NormlizedData")
+            summary = {}
 
-# tests.show_sensors_per_frame(seq_num=10)
+            for i, frame in enumerate(frames[:max_frames]):
+                frame_dict = {
+                    "timestamp": int(frame['timestamp']),
+                    "ego_velocity": frame['ego_velocity'].tolist(),
+                    "ego_yaw_rate": float(frame['ego_yaw_rate']),
+                    "detections": []
+                }
 
-#tests.plot_frame_2d(seq_num=125, frame_idx=145, window_size=2)
+                start_idx = frame['detection_start_idx']
+                end_idx = frame['detection_end_idx']
+                frame_detections = detections[start_idx:end_idx]
 
-# tests.visualize_frame_3d(seq_num=10, frame_idx=15, window_size=2)
+                for det in frame_detections:
+                    frame_dict["detections"].append({
+                        "x_cc": float(det["x_cc"]),
+                        "y_cc": float(det["y_cc"]),
+                        "sensor_id": int(det["sensor_id"]),
+                        "rcs": float(det["rcs"]),
+                        "vr": float(det["vr"]),
+                        "vr_compensated": float(det["vr_compensated"]),
+                        "label_id": int(det["label_id"]),
+                        "track_id": int(det["track_id"]),
+                    })
 
-tests.plot_class_distribution()
+                summary[f"odometry_index_{int(frame['odometry_index'])}"] = frame_dict
+
+        print(json.dumps(summary, indent=4))
+
+    def compare_real_vs_generated(self, real_path, fake_path, label_id=0):
+        def load_points(h5_path, label_id):
+            with h5py.File(h5_path, 'r') as f:
+                detections = f['detections'][:]
+                if 'label_id' in detections.dtype.names:
+                    detections = detections[detections['label_id'] == label_id]
+                x = detections['x_cc']
+                y = detections['y_cc']
+            return x, y
+
+        x_real, y_real = load_points(real_path, label_id)
+        x_fake, y_fake = load_points(fake_path, label_id)
+
+        plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        plt.scatter(x_real, y_real, s=5, c='blue', alpha=0.6)
+        plt.title('Real Data (label_id=0)')
+        plt.xlabel('x_cc')
+        plt.ylabel('y_cc')
+        plt.axis('equal')
+
+        plt.subplot(1, 2, 2)
+        plt.scatter(x_fake, y_fake, s=5, c='green', alpha=0.6)
+        plt.title('Generated Data (GAN Output)')
+        plt.xlabel('x_cc')
+        plt.ylabel('y_cc')
+        plt.axis('equal')
+
+        plt.tight_layout()
+        plt.show()
+
+
+# Example usage
+if __name__ == "__main__":
+    tests = Tests(data_folder="NormlizedData")
+
+    # Test 1: Show frames with multiple sensors
+    # tests.show_sensors_per_frame(seq_num=10)
+
+    # Test 2: Plot 2D points 
+    # tests.plot_frame_2d(seq_num=125, frame_idx=145, window_size=2)
+
+    # Test 3: Plot class histogram
+    # tests.plot_class_distribution()
+
+    # Test 4: Extract summary of H5
+    # tests.extract_h5_summary("NormlizedData/sequence_99.h5", max_frames=3)
+
+    # Test 5: GAN vs real
+    # tests.compare_real_vs_generated(
+    #     real_path="NormlizedData/sequence_99.h5",
+    #     fake_path="DataPreprocessing/generated_label0_data.h5",
+    #     label_id=0
+    # )
