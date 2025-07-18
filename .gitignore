@@ -8,3 +8,5 @@ NonStaticData/
 MovingObjectsData/
 # Normlized Dataset (Good only for model training, not good for tracking)
 NormlizedData/
+# WGAN Dataset
+DataPreprocessing/FakeData

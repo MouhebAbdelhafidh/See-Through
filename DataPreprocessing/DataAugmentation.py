@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+from torch.autograd import grad
 
 # Set device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -20,22 +21,29 @@ class RadarDataset(Dataset):
         return self.data[idx]
 
 # --- Generator ---
+# --- Generator ---
 class Generator(nn.Module):
     def __init__(self, noise_dim=10, output_dim=5):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(noise_dim, 128),
+            nn.LayerNorm(128),
             nn.LeakyReLU(0.2),
             nn.Linear(128, 256),
+            nn.LayerNorm(256),
             nn.LeakyReLU(0.2),
             nn.Linear(256, 256),
+            nn.LayerNorm(256),
             nn.LeakyReLU(0.2),
             nn.Linear(256, 128),
+            nn.LayerNorm(128),
             nn.LeakyReLU(0.2),
             nn.Linear(128, output_dim),
         )
+
     def forward(self, z):
         return self.net(z)
+
 # --- Discriminator ---
 class Discriminator(nn.Module):
     def __init__(self, input_dim=5):
@@ -45,11 +53,34 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Linear(128, 64),
             nn.LeakyReLU(0.2),
-            nn.Linear(64, 1),
-            nn.Sigmoid(),
+            nn.Linear(64, 1)
+            # No sigmoid here!
         )
+
     def forward(self, x):
         return self.net(x)
+
+def compute_gradient_penalty(D, real_samples, fake_samples):
+    alpha = torch.rand(real_samples.size(0), 1, device=DEVICE)
+    alpha = alpha.expand_as(real_samples)
+
+    interpolates = (alpha * real_samples + (1 - alpha) * fake_samples).requires_grad_(True)
+    d_interpolates = D(interpolates)
+
+    grad_outputs = torch.ones_like(d_interpolates)
+    gradients = grad(
+        outputs=d_interpolates,
+        inputs=interpolates,
+        grad_outputs=grad_outputs,
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True
+    )[0]
+
+    gradients = gradients.view(real_samples.size(0), -1)
+    gradient_norm = gradients.norm(2, dim=1)
+    penalty = ((gradient_norm - 1) ** 2).mean()
+    return penalty
 
 # --- Load data with label_id=1 ---
 def load_label1_points(h5_path):
@@ -67,13 +98,12 @@ def load_label1_points(h5_path):
     ], axis=1)
     return data
 
-def train_gan(dataloader, epochs=10, noise_dim=10):
+def train_gan(dataloader, epochs=10, noise_dim=10, lambda_gp=5):
     G = Generator(noise_dim=noise_dim).to(DEVICE)
     D = Discriminator().to(DEVICE)
 
-    criterion = nn.BCELoss()
-    optim_G = torch.optim.Adam(G.parameters(), lr=0.0002)
-    optim_D = torch.optim.Adam(D.parameters(), lr=0.0002)
+    optim_G = torch.optim.Adam(G.parameters(), lr=1e-4, betas=(0.5, 0.9))
+    optim_D = torch.optim.Adam(D.parameters(), lr=1e-4, betas=(0.5, 0.9))
 
     for epoch in range(epochs):
         for real_points in dataloader:
@@ -81,33 +111,30 @@ def train_gan(dataloader, epochs=10, noise_dim=10):
             batch_size = real_points.size(0)
 
             # --- Train Discriminator ---
-            D.zero_grad()
-            labels_real = torch.ones(batch_size, 1, device=DEVICE)
-            output_real = D(real_points)
-            loss_real = criterion(output_real, labels_real)
+            for _ in range(10): 
+                noise = torch.randn(batch_size, noise_dim, device=DEVICE)
+                fake_points = G(noise).detach()
 
+                D_real = D(real_points).mean()
+                D_fake = D(fake_points).mean()
+
+                gp = compute_gradient_penalty(D, real_points, fake_points)
+                loss_D = D_fake - D_real + lambda_gp * gp
+
+                D.zero_grad()
+                loss_D.backward()
+                optim_D.step()
+
+            # --- Train Generator ---
             noise = torch.randn(batch_size, noise_dim, device=DEVICE)
             fake_points = G(noise)
-            labels_fake = torch.zeros(batch_size, 1, device=DEVICE)
-            output_fake = D(fake_points.detach())
-            loss_fake = criterion(output_fake, labels_fake)
+            loss_G = -D(fake_points).mean()
 
-            loss_D = loss_real + loss_fake
-            loss_D.backward()
-            optim_D.step()
+            G.zero_grad()
+            loss_G.backward()
+            optim_G.step()
 
-            # --- Train Generator twice ---
-            for _ in range(2):
-                G.zero_grad()
-                noise = torch.randn(batch_size, noise_dim, device=DEVICE)
-                fake_points = G(noise)
-                labels_gen = torch.ones(batch_size, 1, device=DEVICE)
-                output_gen = D(fake_points)
-                loss_G = criterion(output_gen, labels_gen)
-                loss_G.backward()
-                optim_G.step()
-
-        print(f"  Epoch [{epoch+1}/{epochs}] Loss D: {loss_D.item():.4f} Loss G: {loss_G.item():.4f}")
+        print(f"Epoch [{epoch+1}/{epochs}]  Loss D: {loss_D.item():.4f}  Loss G: {loss_G.item():.4f}")
 
     return G
 
@@ -167,9 +194,9 @@ def main():
             continue
 
         dataset = RadarDataset(data)
-        dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
 
-        generator = train_gan(dataloader, epochs=10)
+        generator = train_gan(dataloader, epochs=100)
         fake = generate_points(generator, num_points=1000)
 
         output_file = os.path.splitext(h5_file)[0] + "_fake_label8.h5"

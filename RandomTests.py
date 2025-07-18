@@ -224,15 +224,16 @@ if __name__ == "__main__":
     # Test 4: Extract summary of H5
     # tests.extract_h5_summary("NormlizedData/sequence_99.h5", max_frames=3)
 
-    # Test 5: GAN vs real
-    # tests.compare_real_vs_generated(
-    #     real_path="NormlizedData/sequence_23.h5",
-    #     fake_path="DataPreprocessing/FakeData/sequence_23_fake_label8.h5",
-    #     label_id=8
-    # )
+    # Test 5: GAN vs real (2D plot)
+    tests.compare_real_vs_generated(
+        real_path="NormlizedData/sequence_125.h5",
+        fake_path="DataPreprocessing/FakeData/sequence_125_fake_label8.h5",
+        label_id=8
+    )
 
+    # Test 6: GAN vs real (Distribution)
     tests.plot_feature_distributions(
-    real_path="NormlizedData/sequence_23.h5",
-    fake_path="DataPreprocessing/FakeData/sequence_23_fake_label8.h5",
-    label_id=8  # Optional, set to None to ignore class filtering
+    real_path="NormlizedData/sequence_125.h5",
+    fake_path="DataPreprocessing/FakeData/sequence_125_fake_label8.h5",
+    label_id=8  
     )
