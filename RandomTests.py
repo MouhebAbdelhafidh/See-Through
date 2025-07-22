@@ -206,34 +206,33 @@ class Tests:
             plt.grid(True)
         plt.tight_layout()
         plt.show()
-
-
-# Example usage
+        
+    
 if __name__ == "__main__":
-    tests = Tests(data_folder="NormlizedData")
+    tests = Tests(data_folder="MixedData")
 
     # Test 1: Show frames with multiple sensors
     # tests.show_sensors_per_frame(seq_num=10)
 
     # Test 2: Plot 2D points 
-    # tests.plot_frame_2d(seq_num=125, frame_idx=145, window_size=2)
+    # tests.plot_frame_2d(seq_num=2, frame_idx=145, window_size=2)
 
     # Test 3: Plot class histogram
-    # tests.plot_class_distribution()
+    tests.plot_class_distribution()
 
     # Test 4: Extract summary of H5
     # tests.extract_h5_summary("NormlizedData/sequence_99.h5", max_frames=3)
 
     # Test 5: GAN vs real (2D plot)
-    tests.compare_real_vs_generated(
-        real_path="NormlizedData/sequence_125.h5",
-        fake_path="DataPreprocessing/FakeData/sequence_125_fake_label8.h5",
-        label_id=8
-    )
+    # tests.compare_real_vs_generated(
+    #     real_path="NormlizedData/sequence_2.h5",
+    #     fake_path="DataPreprocessing/FakeData/Label1/sequence_2_fake_label1.h5",
+    #     label_id=1
+    # )
 
     # Test 6: GAN vs real (Distribution)
-    tests.plot_feature_distributions(
-    real_path="NormlizedData/sequence_125.h5",
-    fake_path="DataPreprocessing/FakeData/sequence_125_fake_label8.h5",
-    label_id=8  
-    )
+    # tests.plot_feature_distributions(
+    # real_path="NormlizedData/sequence_2.h5",
+    # fake_path="MixedData/sequence_2_mixed.h5",
+    # label_id=1
+    # )
