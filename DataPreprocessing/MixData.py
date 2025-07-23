@@ -44,7 +44,6 @@ def mix_all_real_and_fake(real_dir, fake_base_dir, output_dir):
 
         print(f"✅ Mixed data saved to {output_path}")
 
-# Usage:
 mix_all_real_and_fake(
     real_dir='../NormlizedData',
     fake_base_dir='FakeData',

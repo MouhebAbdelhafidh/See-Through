@@ -6,10 +6,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.autograd import grad
 
-# Set device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --- Dataset wrapper ---
 class RadarDataset(Dataset):
     def __init__(self, data_array):
         self.data = data_array.astype(np.float32)
@@ -20,8 +18,6 @@ class RadarDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx]
 
-# --- Generator ---
-# --- Generator ---
 class Generator(nn.Module):
     def __init__(self, noise_dim=10, output_dim=5):
         super().__init__()
@@ -44,7 +40,6 @@ class Generator(nn.Module):
     def forward(self, z):
         return self.net(z)
 
-# --- Discriminator ---
 class Discriminator(nn.Module):
     def __init__(self, input_dim=5):
         super().__init__()
@@ -54,7 +49,6 @@ class Discriminator(nn.Module):
             nn.Linear(128, 64),
             nn.LeakyReLU(0.2),
             nn.Linear(64, 1)
-            # No sigmoid here!
         )
 
     def forward(self, x):
@@ -82,23 +76,22 @@ def compute_gradient_penalty(D, real_samples, fake_samples):
     penalty = ((gradient_norm - 1) ** 2).mean()
     return penalty
 
-# --- Load data with label_id=1 ---
-def load_label1_points(h5_path):
+def load_label_points(h5_path, label_id):
     with h5py.File(h5_path, "r") as f:
         detections = f["detections"][:]
-    label1 = detections[detections["label_id"] == 8]
-    if len(label1) == 0:
+    label_data = detections[detections["label_id"] == label_id]
+    if len(label_data) == 0:
         return np.array([]) 
     data = np.stack([
-        label1["x_cc"],
-        label1["y_cc"],
-        label1["rcs"],
-        label1["vr"],
-        label1["vr_compensated"]
+        label_data["x_cc"],
+        label_data["y_cc"],
+        label_data["rcs"],
+        label_data["vr"],
+        label_data["vr_compensated"]
     ], axis=1)
     return data
 
-def train_gan(dataloader, epochs=10, noise_dim=10, lambda_gp=5):
+def train_gan(dataloader, epochs=100, noise_dim=10, lambda_gp=5):
     G = Generator(noise_dim=noise_dim).to(DEVICE)
     D = Discriminator().to(DEVICE)
 
@@ -110,7 +103,6 @@ def train_gan(dataloader, epochs=10, noise_dim=10, lambda_gp=5):
             real_points = real_points.to(DEVICE)
             batch_size = real_points.size(0)
 
-            # --- Train Discriminator ---
             for _ in range(10): 
                 noise = torch.randn(batch_size, noise_dim, device=DEVICE)
                 fake_points = G(noise).detach()
@@ -125,7 +117,6 @@ def train_gan(dataloader, epochs=10, noise_dim=10, lambda_gp=5):
                 loss_D.backward()
                 optim_D.step()
 
-            # --- Train Generator ---
             noise = torch.randn(batch_size, noise_dim, device=DEVICE)
             fake_points = G(noise)
             loss_G = -D(fake_points).mean()
@@ -138,14 +129,14 @@ def train_gan(dataloader, epochs=10, noise_dim=10, lambda_gp=5):
 
     return G
 
-
 def generate_points(G, num_points=1000, noise_dim=10):
     G.eval()
     with torch.no_grad():
         noise = torch.randn(num_points, noise_dim, device=DEVICE)
         return G(noise).cpu().numpy()
 
-def save_generated_to_h5(fake_points, output_path):
+# --- Save to HDF5 ---
+def save_generated_to_h5(fake_points, output_path, label_id):
     dtype = np.dtype([
         ("x_cc", "f4"), ("y_cc", "f4"), ("label_id", "u1"),
         ("track_id", "i4"), ("sensor_id", "u1"),
@@ -158,7 +149,7 @@ def save_generated_to_h5(fake_points, output_path):
     data["rcs"] = fake_points[:, 2]
     data["vr"] = fake_points[:, 3]
     data["vr_compensated"] = fake_points[:, 4]
-    data["label_id"] = 8
+    data["label_id"] = label_id
     data["track_id"] = -1
     data["sensor_id"] = 0
 
@@ -170,38 +161,48 @@ def save_generated_to_h5(fake_points, output_path):
     frames = np.array([(0, 0, 0.0, 0.0, 0, n)], dtype=frame_dtype)
 
     with h5py.File(output_path, "w") as f:
-        f.attrs["sequence_name"] = "generated_label1"
+        f.attrs["sequence_name"] = f"generated_label_{label_id}"
         f.create_dataset("detections", data=data)
         f.create_dataset("frames", data=frames)
 
     print(f"✅ Saved: {output_path}")
 
-
 def main():
     input_folder = "../NormlizedData"
-    output_folder = "FakeData"
-    os.makedirs(output_folder, exist_ok=True)
+    base_output_folder = "FakeData"
+    os.makedirs(base_output_folder, exist_ok=True)
 
     h5_files = [f for f in os.listdir(input_folder) if f.endswith(".h5")]
 
-    for h5_file in h5_files:
-        input_path = os.path.join(input_folder, h5_file)
-        print(f"📂 Processing: {input_path}")
+    for label_id in range(7, 11):  
+        print(f"\n🔍 Processing label_id: {label_id}")
+        label_output_folder = os.path.join(base_output_folder, f"label_{label_id}")
+        os.makedirs(label_output_folder, exist_ok=True)
 
-        data = load_label1_points(input_path)
-        if data.shape[0] < 50:
-            print("⚠️ Skipping (not enough label 8 points)")
-            continue
+        for h5_file in h5_files:
+            input_path = os.path.join(input_folder, h5_file)
+            output_file = os.path.splitext(h5_file)[0] + f"_fake_label{label_id}.h5"
+            output_path = os.path.join(label_output_folder, output_file)
 
-        dataset = RadarDataset(data)
-        dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+            if os.path.exists(output_path):
+                print(f"✅ Already exists, skipping: {output_path}")
+                continue
 
-        generator = train_gan(dataloader, epochs=100)
-        fake = generate_points(generator, num_points=1000)
+            print(f"📂 File: {input_path}")
+            data = load_label_points(input_path, label_id)
 
-        output_file = os.path.splitext(h5_file)[0] + "_fake_label8.h5"
-        output_path = os.path.join(output_folder, output_file)
-        save_generated_to_h5(fake, output_path)
+            if data.shape[0] < 50:
+                print("⚠️ Skipping (not enough points for this label)")
+                continue
+
+            dataset = RadarDataset(data)
+            dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+            generator = train_gan(dataloader, epochs=100)
+            fake = generate_points(generator, num_points=100000)
+
+            save_generated_to_h5(fake, output_path, label_id)
+
 
 if __name__ == "__main__":
     main()
