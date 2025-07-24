@@ -112,41 +112,38 @@ class Tests:
                      ha='center', va='bottom', fontsize=9)
 
         plt.show()
+    
+    import h5py
+
+    
 
     def extract_h5_summary(self, file_path, max_frames=5):
         with h5py.File(file_path, 'r') as f:
             detections = f['detections'][:]
-            frames = f['frames'][:]
-
-            summary = {}
-
-            for i, frame in enumerate(frames[:max_frames]):
-                frame_dict = {
-                    "timestamp": int(frame['timestamp']),
-                    "ego_velocity": frame['ego_velocity'].tolist(),
-                    "ego_yaw_rate": float(frame['ego_yaw_rate']),
-                    "detections": []
+            
+            if 'frames' not in f:
+                print("Warning: 'frames' dataset not found. Only detections will be processed.")
+                summary = {
+                    "detections": [
+                        {
+                            "x_cc": float(det["x_cc"]),
+                            "y_cc": float(det["y_cc"]),
+                            "sensor_id": int(det["sensor_id"]),
+                            "rcs": float(det["rcs"]),
+                            "vr": float(det["vr"]),
+                            "vr_compensated": float(det["vr_compensated"]),
+                            "label_id": int(det["label_id"]),
+                            "track_id": int(det["track_id"]),
+                        }
+                        for det in detections[:max_frames]
+                    ]
                 }
-
-                start_idx = frame['detection_start_idx']
-                end_idx = frame['detection_end_idx']
-                frame_detections = detections[start_idx:end_idx]
-
-                for det in frame_detections:
-                    frame_dict["detections"].append({
-                        "x_cc": float(det["x_cc"]),
-                        "y_cc": float(det["y_cc"]),
-                        "sensor_id": int(det["sensor_id"]),
-                        "rcs": float(det["rcs"]),
-                        "vr": float(det["vr"]),
-                        "vr_compensated": float(det["vr_compensated"]),
-                        "label_id": int(det["label_id"]),
-                        "track_id": int(det["track_id"]),
-                    })
-
-                summary[f"odometry_index_{int(frame['odometry_index'])}"] = frame_dict
-
+            else:
+                frames = f['frames'][:]
+                # Continue as your original code...
+            
         print(json.dumps(summary, indent=4))
+
 
     def compare_real_vs_generated(self, real_path, fake_path, label_id=1):
         def load_points(h5_path, label_id):
@@ -218,10 +215,10 @@ if __name__ == "__main__":
     # tests.plot_frame_2d(seq_num=2, frame_idx=145, window_size=2)
 
     # Test 3: Plot class histogram
-    tests.plot_class_distribution()
+    # tests.plot_class_distribution()
 
     # Test 4: Extract summary of H5
-    # tests.extract_h5_summary("NormlizedData/sequence_99.h5", max_frames=3)
+    # tests.extract_h5_summary("MixedData/sequence_1_mixed.h5", max_frames=3)
 
     # Test 5: GAN vs real (2D plot)
     # tests.compare_real_vs_generated(
@@ -236,3 +233,22 @@ if __name__ == "__main__":
     # fake_path="MixedData/sequence_2_mixed.h5",
     # label_id=1
     # )
+
+
+###################################################################################
+##################      VERY RANDOM TEST     ######################################
+###################################################################################
+
+# def explore_h5(file_path):
+#     def print_structure(name, obj):
+#         if isinstance(obj, h5py.Group):
+#             print(f"[Group]  {name}")
+#         elif isinstance(obj, h5py.Dataset):
+#             print(f"[Dataset] {name} | shape: {obj.shape}, dtype: {obj.dtype}")
+
+#     with h5py.File(file_path, 'r') as f:
+#         print(f"Exploring {file_path}:")
+#         f.visititems(print_structure)
+
+# h5_file = "MixedData/sequence_1_mixed.h5"
+# explore_h5(h5_file)
