@@ -14,3 +14,7 @@ DataPreprocessing/FakeData
 MixedData/
 # Radars early fusion data
 FusedData/
+# Fused sequences names
+fused_log.txt
+# Failed sequences to fuse (because of memory issue or ...)
+failed_log.json

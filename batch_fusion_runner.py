@@ -1,47 +1,63 @@
 import os
 import subprocess
+import json
 
-# Configuration
+# Paths
 input_folder = "MixedData"
 output_folder = "FusedData"
-radius = 0.5  
-weights = "0:1.0" 
-fusion_script = "early_fusion.py"
+log_file = "fused_log.txt"
+error_log_file = "failed_log.json"
 
-# List all input HDF5 files
-all_files = sorted([
-    f for f in os.listdir(input_folder)
-    if f.endswith("_mixed.h5")
-])
+# Fusion parameters
+radius = 0.5
+weights = "0:1.0"  # Example, adjust as needed
 
-print(f"Found {len(all_files)} sequence files to process.\n")
+# Load already fused files
+fused_set = set()
+if os.path.exists(log_file):
+    with open(log_file, "r") as f:
+        fused_set = set(line.strip() for line in f)
 
-for i, filename in enumerate(all_files):
-    input_path = os.path.join(input_folder, filename)
-    base_name = filename.replace("_mixed.h5", "")
-    output_filename = f"{base_name}_fused.h5"
-    output_path = os.path.join(output_folder, output_filename)
+# Load previously failed log
+failed_log = {}
+if os.path.exists(error_log_file):
+    with open(error_log_file, "r") as f:
+        failed_log = json.load(f)
 
-    # Skip already processed files
-    if os.path.exists(output_path):
-        print(f"[{i+1}/{len(all_files)}] Skipping {filename} (already fused).")
+# Go through each .h5 file in input folder
+all_files = sorted(os.listdir(input_folder))
+for fname in all_files:
+    if not fname.endswith(".h5") or fname in fused_set:
         continue
 
-    # Build the command
+    input_path = os.path.join(input_folder, fname)
+    output_fname = fname.replace("_mixed.h5", "_fused.h5")
+    output_path = os.path.join(output_folder, output_fname)
+
     cmd = [
-        "python", fusion_script,
+        "python", "early_fusion.py",
         "--in", input_path,
         "--out", output_path,
-        "--radius", str(radius)
+        "--radius", str(radius),
+        "--weights", weights
     ]
 
-    if weights:
-        cmd += ["--weights", weights]
-
-    print(f"[{i+1}/{len(all_files)}] Processing {filename}...")
+    print(f"▶️ Processing {fname}...")
     try:
-        subprocess.run(cmd, check=True)
-        print(f"✅ Finished: {output_filename}\n")
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print(f"✅ Success: {fname}")
+
+        # Log success
+        with open(log_file, "a") as f:
+            f.write(fname + "\n")
+
     except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to fuse {filename}: {e}\n")
-        break
+        error_message = e.stderr.strip().split("\n")[-1]
+        print(f"❌ Failed: {fname} — {error_message}")
+
+        # Log failure with reason
+        failed_log[fname] = error_message
+
+        # Update error log
+        with open(error_log_file, "w") as f:
+            json.dump(failed_log, f, indent=2)
