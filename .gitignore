@@ -12,3 +12,5 @@ NormlizedData/
 DataPreprocessing/FakeData
 # Final prepared Dataset (Mixed real + fake data)
 MixedData/
+# Radars early fusion data
+FusedData/

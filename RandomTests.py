@@ -239,16 +239,16 @@ if __name__ == "__main__":
 ##################      VERY RANDOM TEST     ######################################
 ###################################################################################
 
-# def explore_h5(file_path):
-#     def print_structure(name, obj):
-#         if isinstance(obj, h5py.Group):
-#             print(f"[Group]  {name}")
-#         elif isinstance(obj, h5py.Dataset):
-#             print(f"[Dataset] {name} | shape: {obj.shape}, dtype: {obj.dtype}")
+def explore_h5(file_path):
+    def print_structure(name, obj):
+        if isinstance(obj, h5py.Group):
+            print(f"[Group]  {name}")
+        elif isinstance(obj, h5py.Dataset):
+            print(f"[Dataset] {name} | shape: {obj.shape}, dtype: {obj.dtype}")
 
-#     with h5py.File(file_path, 'r') as f:
-#         print(f"Exploring {file_path}:")
-#         f.visititems(print_structure)
+    with h5py.File(file_path, 'r') as f:
+        print(f"Exploring {file_path}:")
+        f.visititems(print_structure)
 
-# h5_file = "MixedData/sequence_1_mixed.h5"
-# explore_h5(h5_file)
+h5_file = "FusedData/sequence_100_fused.h5"
+explore_h5(h5_file)
