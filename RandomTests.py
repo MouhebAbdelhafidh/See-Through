@@ -238,17 +238,24 @@ if __name__ == "__main__":
 ###################################################################################
 ##################      VERY RANDOM TEST     ######################################
 ###################################################################################
+import h5py
+import os
 
-def explore_h5(file_path):
-    def print_structure(name, obj):
-        if isinstance(obj, h5py.Group):
-            print(f"[Group]  {name}")
-        elif isinstance(obj, h5py.Dataset):
-            print(f"[Dataset] {name} | shape: {obj.shape}, dtype: {obj.dtype}")
+file_path = "FusedData/sequence_1_fused.h5"  # Adjust path if needed
 
+if not os.path.exists(file_path):
+    print(f"File not found: {file_path}")
+else:
     with h5py.File(file_path, 'r') as f:
-        print(f"Exploring {file_path}:")
-        f.visititems(print_structure)
+        print("Datasets inside the file:")
+        for key in f.keys():
+            print(f" - {key}")
 
-h5_file = "FusedData/sequence_100_fused.h5"
-explore_h5(h5_file)
+        data = f['fused_detections'][:]
+        print(f"\nNumber of records: {len(data)}")
+        print("Example record (first entry):")
+        print(data[0])
+
+        print("\nAll fields of the first record:")
+        for name in data.dtype.names:
+            print(f"{name}: {data[0][name]}")
