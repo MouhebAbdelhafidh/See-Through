@@ -135,7 +135,6 @@ def generate_points(G, num_points=1000, noise_dim=10):
         noise = torch.randn(num_points, noise_dim, device=DEVICE)
         return G(noise).cpu().numpy()
 
-# --- Save to HDF5 ---
 def save_generated_to_h5(fake_points, output_path, label_id):
     dtype = np.dtype([
         ("x_cc", "f4"), ("y_cc", "f4"), ("label_id", "u1"),
@@ -165,7 +164,7 @@ def save_generated_to_h5(fake_points, output_path, label_id):
         f.create_dataset("detections", data=data)
         f.create_dataset("frames", data=frames)
 
-    print(f"✅ Saved: {output_path}")
+    print(f" Saved: {output_path}")
 
 def main():
     input_folder = "../NormlizedData"
@@ -175,7 +174,7 @@ def main():
     h5_files = [f for f in os.listdir(input_folder) if f.endswith(".h5")]
 
     for label_id in range(7, 11):  
-        print(f"\n🔍 Processing label_id: {label_id}")
+        print(f"\n Processing label_id: {label_id}")
         label_output_folder = os.path.join(base_output_folder, f"label_{label_id}")
         os.makedirs(label_output_folder, exist_ok=True)
 
@@ -185,14 +184,14 @@ def main():
             output_path = os.path.join(label_output_folder, output_file)
 
             if os.path.exists(output_path):
-                print(f"✅ Already exists, skipping: {output_path}")
+                print(f" Already exists, skipping: {output_path}")
                 continue
 
-            print(f"📂 File: {input_path}")
+            print(f" File: {input_path}")
             data = load_label_points(input_path, label_id)
 
             if data.shape[0] < 50:
-                print("⚠️ Skipping (not enough points for this label)")
+                print("Skipping label")
                 continue
 
             dataset = RadarDataset(data)

@@ -206,7 +206,7 @@ class Tests:
         
     
 if __name__ == "__main__":
-    tests = Tests(data_folder="MixedData")
+    tests = Tests(data_folder="ProcessedData")
 
     # Test 1: Show frames with multiple sensors
     # tests.show_sensors_per_frame(seq_num=10)
@@ -220,14 +220,14 @@ if __name__ == "__main__":
     # Test 4: Extract summary of H5
     # tests.extract_h5_summary("MixedData/sequence_1_mixed.h5", max_frames=3)
 
-    # Test 5: GAN vs real (2D plot)
+    # Test 5: WGAN vs real (2D plot)
     # tests.compare_real_vs_generated(
     #     real_path="NormlizedData/sequence_2.h5",
     #     fake_path="DataPreprocessing/FakeData/Label1/sequence_2_fake_label1.h5",
     #     label_id=1
     # )
 
-    # Test 6: GAN vs real (Distribution)
+    # Test 6: WGAN vs real (Distribution)
     # tests.plot_feature_distributions(
     # real_path="NormlizedData/sequence_2.h5",
     # fake_path="MixedData/sequence_2_mixed.h5",
@@ -238,11 +238,8 @@ if __name__ == "__main__":
 ###################################################################################
 ##################      VERY RANDOM TEST     ######################################
 ###################################################################################
-import h5py
-import os
 
-file_path = "FusedData/sequence_1_fused.h5"  # Adjust path if needed
-
+file_path = "FusedData/sequence_1_fused.h5"  
 if not os.path.exists(file_path):
     print(f"File not found: {file_path}")
 else:

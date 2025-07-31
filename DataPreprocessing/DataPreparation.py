@@ -4,7 +4,7 @@ import h5py
 import numpy as np
 from tqdm import tqdm
 
-# This comes after grouping by odmetting index
+# This comes after grouping by odmetery index
 class DataPreparation:
     detection_dtype = np.dtype([
         ("x_cc", "f4"),
@@ -55,7 +55,7 @@ class DataPreparation:
                 current_index += count
 
             if len(new_frames) == 0:
-                print(f"⚠️  No non-static data in {input_path}, skipping.")
+                print(f"  No non-static data in {input_path}, skipping.")
                 return
 
             with h5py.File(output_path, "w") as out_file:
@@ -97,7 +97,7 @@ class DataPreparation:
                 current_index += count
 
             if len(new_frames) == 0:
-                print(f"⚠️  No points above velocity threshold in {input_path}, skipping.")
+                print(f"  No points above velocity threshold in {input_path}, skipping.")
                 return
 
             with h5py.File(output_path, "w") as out_file:
@@ -131,7 +131,7 @@ class DataPreparation:
             out_file.create_dataset("frames", data=frames, dtype=frames.dtype)
             out_file.create_dataset("detections", data=normalized_detections, dtype=self.detection_dtype)
 
-        print(f"✅ Normalized data saved to: {output_path}")
+        print(f" Normalized data saved to: {output_path}")
 
 
 
@@ -156,7 +156,7 @@ class DataPreparation:
             else:
                 self.filter_and_save_non_static(input_path, output_path)
 
-        print(f"\n✅ Done! Processed sequences saved to: {self.output_dir}")
+        print(f"\n Done! Processed sequences saved to: {self.output_dir}")
 
 
 

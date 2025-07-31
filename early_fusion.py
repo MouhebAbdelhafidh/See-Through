@@ -10,9 +10,7 @@ except ImportError:
     HAVE_SCIPY = False
     print("[WARN] scipy not found; falling back to slower O(n^2) clustering.")
 
-############################
-# -------- Utils ----------
-############################
+
 
 class UnionFind:
     def __init__(self, n):
@@ -71,14 +69,12 @@ def cluster_points_xy(points_xy, radius):
         for i, j in pairs:
             uf.union(i, j)
     else:
-        # O(n^2) fallback
         for i in range(n):
             for j in range(i + 1, n):
                 if np.linalg.norm(points_xy[i] - points_xy[j]) <= radius:
                     uf.union(i, j)
 
     roots = np.array([uf.find(i) for i in range(n)])
-    # reindex to 0..k-1
     _, remapped = np.unique(roots, return_inverse=True)
     return remapped
 
@@ -91,7 +87,7 @@ def fuse_cluster(indices, det, weights):
     w = weights[idx]
     wsum = np.sum(w)
 
-    # Weighted average x, y, vr, vr_compensated, rcs if available
+    # Weighted average x, y, vr, vr_compensated, rcs
     def wavg(field):
         return np.sum(det[field][idx] * w) / wsum
 
@@ -177,9 +173,6 @@ def group_by_frame(detections, frame_key):
         idx = np.where(values == v)[0]
         yield v, idx
 
-############################
-# -------- Main -----------
-############################
 
 def main():
     parser = argparse.ArgumentParser(description="Early fuse multi-sensor detections from an HDF5 file.")

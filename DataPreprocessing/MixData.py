@@ -32,7 +32,7 @@ def mix_all_real_and_fake(real_dir, fake_base_dir, output_dir):
                 with h5py.File(fake_path, 'r') as f_fake:
                     fake_detections_list.append(f_fake['detections'][:])
             else:
-                print(f"⚠️ Missing fake file: {fake_path}")
+                print(f" Missing fake file: {fake_path}")
 
         # Concatenate all real and fake detections
         all_detections = np.concatenate([real_detections] + fake_detections_list)
@@ -42,7 +42,7 @@ def mix_all_real_and_fake(real_dir, fake_base_dir, output_dir):
         with h5py.File(output_path, 'w') as f_out:
             f_out.create_dataset('detections', data=all_detections)
 
-        print(f"✅ Mixed data saved to {output_path}")
+        print(f" Mixed data saved to {output_path}")
 
 mix_all_real_and_fake(
     real_dir='../NormlizedData',

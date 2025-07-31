@@ -9,10 +9,10 @@ os.makedirs("ProcessedNonStaticData", exist_ok=True)
 
 # Define dtype for processed detections
 detection_dtype = np.dtype([
-    ("x_cc", "f4"),      # float32
+    ("x_cc", "f4"),     
     ("y_cc", "f4"),
-    ("label_id", "u1"),  # uint8 (0-255)
-    ("track_id", "i4"),  # int32
+    ("label_id", "u1"), 
+    ("track_id", "i4"),  
     ("sensor_id", "u1"),
     ("rcs", "f4"),
     ("vr", "f4"),
@@ -124,7 +124,7 @@ def process_sequence(sequence_dir, output_path):
                     detection_idx += (end - start)
                     
 # Process all 158 sequences
-base_dir = "RadarScenes/data"  # Change to your dataset path
+base_dir = "RadarScenes/data"
 sequences = [f"sequence_{i}" for i in range(1, 159)]
 
 for seq in tqdm(sequences, desc="Processing sequences"):
