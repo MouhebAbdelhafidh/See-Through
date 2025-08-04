@@ -168,30 +168,49 @@ class PointNet2Backbone(nn.Module):
 
 PointNet2FeatureExtractor = PointNet2Backbone
 
-file_path = "FusedData/sequence_1_fused.h5"
+file_path = "FusedData/sequence_2_fused.h5"
 
 if not os.path.exists(file_path):
     print(f"File not found: {file_path}")
     exit()
 
-with h5py.File(file_path, 'r') as f:
-    data = f['fused_detections'][:]
-
-    # Select features (e.g., x_cc, y_cc, vr, vr_compensated, rcs)
-    selected_fields = ['x_cc', 'y_cc', 'vr', 'vr_compensated', 'rcs']
-    all_data = np.stack([data[field] for field in selected_fields], axis=-1)  # (N, 5)
-
-    # Split into xyz and features
-    xyz_np = all_data[:, :2]  # (x_cc, y_cc)
-    feat_np = all_data[:, 2:]  # (vr, vr_compensated, rcs)
-
-    # Convert to torch tensors
-    xyz = torch.tensor(xyz_np, dtype=torch.float32).unsqueeze(0)      # (1, N, 2)
-    features = torch.tensor(feat_np, dtype=torch.float32).unsqueeze(0)  # (1, N, 3)
-
 model = PointNet2FeatureExtractor(feature_channels=3)
 model.eval()
-with torch.no_grad():
-    output, _, _ = model(xyz, features)
-    print("Extracted feature vector shape:", output.shape)
-    print("Feature vector:", output[0])
+
+features_list = []
+selected_fields = ['x_cc', 'y_cc', 'vr', 'vr_compensated', 'rcs']
+
+inputs_info = []  # To store original input used per feature vector
+
+with h5py.File(file_path, 'r') as f:
+    fused_detections = f['fused_detections']
+    for i in range(len(fused_detections)):
+        record = fused_detections[i]
+        
+        # Get original input: (x_cc, y_cc, vr, vr_compensated, rcs)
+        point = np.array([record[field] for field in selected_fields])  # shape (5,)
+        inputs_info.append(point.copy())  # store input for traceability
+        
+        xyz_np = point[:2].reshape(1, 2)
+        feat_np = point[2:].reshape(1, 3)
+        
+        xyz = torch.tensor(xyz_np, dtype=torch.float32).unsqueeze(0)
+        features = torch.tensor(feat_np, dtype=torch.float32).unsqueeze(0)
+        
+        with torch.no_grad():
+            output, _, _ = model(xyz, features)
+        
+        features_list.append(output.squeeze(0))
+
+# Stack results
+all_features = torch.stack(features_list)
+inputs_info = np.stack(inputs_info)  # shape (num_points, 5)
+print("Feature vector 0:")
+print(all_features[0])
+
+print("\nInput used for feature vector 0:")
+print(f"x_cc = {inputs_info[0][0]:.4f}")
+print(f"y_cc = {inputs_info[0][1]:.4f}")
+print(f"vr = {inputs_info[0][2]:.4f}")
+print(f"vr_compensated = {inputs_info[0][3]:.4f}")
+print(f"rcs = {inputs_info[0][4]:.4f}")

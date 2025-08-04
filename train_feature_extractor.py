@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-from extract_features import PointNet2Backbone  # your backbone model
+from extract_features import PointNet2Backbone  
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -36,7 +36,7 @@ class RadarPointCloudDataset(Dataset):
 
                 xyz = torch.tensor(np.stack([x_cc, y_cc], axis=-1), dtype=torch.float32)       # [N, 2]
                 features = torch.tensor(np.stack([vr, vr_comp, rcs], axis=-1), dtype=torch.float32)  # [N, 3]
-                label = int(label_id[0])  # assuming single label per sample
+                label = int(label_id[0])  
 
                 self.samples.append((xyz, features, label))
                 self.labels_set.add(label)

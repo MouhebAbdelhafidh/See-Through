@@ -256,3 +256,11 @@ else:
         print("\nAll fields of the first record:")
         for name in data.dtype.names:
             print(f"{name}: {data[0][name]}")
+
+        print("-----------------------------")
+
+        print(data[1])
+
+        print("\nAll fields of the second record:")
+        for name in data.dtype.names:
+            print(f"{name}: {data[1][name]}")
