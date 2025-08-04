@@ -168,7 +168,7 @@ class PointNet2Backbone(nn.Module):
 
 PointNet2FeatureExtractor = PointNet2Backbone
 
-file_path = "FusedData/sequence_9_fused.h5"
+file_path = "FusedData/sequence_1_fused.h5"
 
 if not os.path.exists(file_path):
     print(f"File not found: {file_path}")
