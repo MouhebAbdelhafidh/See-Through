@@ -1,4 +1,3 @@
-# train_votenet_head.py
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,9 +6,9 @@ from sklearn.model_selection import train_test_split
 
 # ---------------- Config ----------------
 DATA_PATH = "precomputed_data.npz"
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 EPOCHS = 100
-LR = 1e-3
+LR = 1e-4
 NUM_CLASSES = 11  
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # -----------------------------------------
@@ -43,18 +42,26 @@ val_dataset = FeatureDataset(X_val, y_val)
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-# Simple classification head (can mimic VoteNet head FC layers)
 class VoteNetHead(nn.Module):
     def __init__(self, in_dim=1024, num_classes=NUM_CLASSES):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(in_dim, 512),
-            nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+
             nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(256, num_classes)
+            nn.BatchNorm1d(256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.1),
+
+            nn.Linear(128, num_classes)
         )
 
     def forward(self, x):
