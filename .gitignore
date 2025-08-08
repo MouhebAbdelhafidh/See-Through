@@ -22,3 +22,5 @@ failed_log.json
 __pycache__/
 # Models checkpoints
 checkpoints/
+# Extracted features with labels
+precomputed_data.npz

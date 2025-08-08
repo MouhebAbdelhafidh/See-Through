@@ -239,28 +239,26 @@ if __name__ == "__main__":
 ##################      VERY RANDOM TEST     ######################################
 ###################################################################################
 
-file_path = "FusedData/sequence_1_fused.h5"  
-if not os.path.exists(file_path):
-    print(f"File not found: {file_path}")
-else:
-    with h5py.File(file_path, 'r') as f:
-        print("Datasets inside the file:")
-        for key in f.keys():
-            print(f" - {key}")
+import numpy as np
 
-        data = f['fused_detections'][:]
-        print(f"\nNumber of records: {len(data)}")
-        print("Example record (first entry):")
-        print(data[0])
+# Load the npz file with pickle enabled
+data = np.load("precomputed_data.npz", allow_pickle=True)
 
-        print("\nAll fields of the first record:")
-        for name in data.dtype.names:
-            print(f"{name}: {data[0][name]}")
+# Show all keys
+print("Keys in the file:", data.keys())
 
-        print("-----------------------------")
+# Show shapes for features and labels
+print("features shape:", data["features"].shape)
+print("labels shape:", data["labels"].shape)
 
-        print(data[1])
+# If meta exists, show type and length
+if "meta" in data:
+    print("meta type:", type(data["meta"]))
+    print("meta length:", len(data["meta"]))
 
-        print("\nAll fields of the second record:")
-        for name in data.dtype.names:
-            print(f"{name}: {data[1][name]}")
+# Show first two records
+print("\nFirst 2 feature vectors:\n", data["features"][:2])
+print("\nFirst 2 labels:", data["labels"][:2])
+
+if "meta" in data:
+    print("\nFirst 2 meta entries:", data["meta"][:2])
