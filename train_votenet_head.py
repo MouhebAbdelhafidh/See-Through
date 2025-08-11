@@ -46,20 +46,25 @@ class VoteNetHead(nn.Module):
     def __init__(self, in_dim=1024, num_classes=NUM_CLASSES):
         super().__init__()
         self.net = nn.Sequential(
+            nn.Linear(in_dim, 1024),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0),
+                                 
             nn.Linear(in_dim, 512),
             nn.BatchNorm1d(512),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
+            nn.Dropout(0),
 
             nn.Linear(512, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
+            nn.Dropout(0),
 
             nn.Linear(256, 128),
             nn.BatchNorm1d(128),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.1),
+            nn.Dropout(0),
 
             nn.Linear(128, num_classes)
         )
