@@ -20,10 +20,10 @@ class VoteNetHead(nn.Module):
         super().__init__()
         # Shared MLP
         self.shared = nn.Sequential(
-            nn.Linear(in_dim, 512),
-            nn.BatchNorm1d(512),
+            nn.Linear(in_dim, 256),
+            nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Linear(512, hidden_dim),
+            nn.Linear(256, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.ReLU(inplace=True)
         )
