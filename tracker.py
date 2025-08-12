@@ -141,8 +141,8 @@ def draw_tracks(frame, tracks):
 
 # ---------------- Main ---------------- #
 def main():
-    h5_path = "RadarScenes/data/sequence_1/radar_data.h5"
-    classifier_path = "votenet_head_finetuned.pth"
+    h5_path = "ProcessedData/sequence_1.h5"
+    classifier_path = "checkpoints/votenet_head_finetuned.pth"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

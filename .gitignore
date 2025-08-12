@@ -18,11 +18,11 @@ FusedData/
 fused_log.txt
 # Failed sequences to fuse (because of memory issue or ...)
 failed_log.json
-
+# Pycache
 __pycache__/
 # Models checkpoints
 checkpoints/
 # Extracted features with labels
 precomputed_data.npz
-
+# Tracking demo
 tracking_result.mp4

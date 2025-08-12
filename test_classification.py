@@ -4,11 +4,11 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from sklearn.metrics import classification_report, accuracy_score
-from train_votenet_head import VoteNetHead  # only the head class
+from train_votenet_head import VoteNetHead  
 
 # ---------------- Config ----------------
 DATA_PATH = "precomputed_data.npz"
-MODEL_PATH = "votenet_head_finetuned.pth"
+MODEL_PATH = "checkpoints/votenet_head_finetuned1.pth"
 BATCH_SIZE = 32
 NUM_CLASSES = 11
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

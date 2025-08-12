@@ -1,40 +1,98 @@
+# train_votenet_head.py
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
+
 
 # ---------------- Config ----------------
 DATA_PATH = "precomputed_data.npz"
 BATCH_SIZE = 32
 EPOCHS = 0
 LR = 1e-4
-NUM_CLASSES = 11  
+NUM_CLASSES = 11       # Semantic classes
+NUM_SIZE_CLUSTER = 8   # Size bins
+NUM_HEADING_BIN = 12   # Heading bins
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# -----------------------------------------
 
-# Load precomputed features
-print("Loading precomputed features...")
-data = np.load(DATA_PATH, allow_pickle=True)
-features = data["features"]    # shape: (N, 1024)
-labels = data["labels"]        # shape: (N,)
 
-# Train/val split (80/20)
-X_train, X_val, y_train, y_val = train_test_split(
-    features, labels, test_size=0.2, random_state=42, shuffle=True
-)
-
-# Dataset wrapper
+# ---------------- Dataset ----------------
 class FeatureDataset(Dataset):
-    def __init__(self, feats, labs):
-        self.feats = torch.tensor(feats, dtype=torch.float32)
-        self.labs = torch.tensor(labs, dtype=torch.long)
+    def __init__(self, features, labels):
+        self.features = features.astype(np.float32)
+        self.labels = labels.astype(np.int64)
 
     def __len__(self):
-        return len(self.labs)
+        return len(self.features)
 
     def __getitem__(self, idx):
-        return self.feats[idx], self.labs[idx]
+        return self.features[idx], self.labels[idx]
+
+
+# ---------------- Model ----------------
+class VoteNetHead(nn.Module):
+    def __init__(self, in_dim=256):
+        super(VoteNetHead, self).__init__()
+
+        # Shared MLP
+        self.mlp = nn.Sequential(
+            nn.Linear(in_dim, 256),
+            nn.ReLU(),
+            nn.BatchNorm1d(256),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.BatchNorm1d(256)
+        )
+
+        # Objectness (bg / object)
+        self.objectness = nn.Linear(256, 2)
+
+        # Semantic classification
+        self.semantic = nn.Linear(256, NUM_CLASSES)
+
+        # BBox center
+        self.center = nn.Linear(256, 3)
+
+        # Size prediction
+        self.size_scores = nn.Linear(256, NUM_SIZE_CLUSTER)
+        self.size_residuals = nn.Linear(256, NUM_SIZE_CLUSTER * 3)
+
+        # Heading prediction
+        self.heading_scores = nn.Linear(256, NUM_HEADING_BIN)
+        self.heading_residuals = nn.Linear(256, NUM_HEADING_BIN)
+
+        # Velocity prediction
+        self.velocity = nn.Linear(256, 2)
+
+    def forward(self, x):
+        x = self.mlp(x)
+
+        return {
+            "classification": {
+                "objectness": self.objectness(x),
+                "semantic": self.semantic(x)
+            },
+            "bbox": {
+                "center": self.center(x),
+                "size_scores": self.size_scores(x),
+                "size_residuals": self.size_residuals(x).view(-1, NUM_SIZE_CLUSTER, 3),
+                "heading_scores": self.heading_scores(x),
+                "heading_residuals": self.heading_residuals(x)
+            },
+            "velocity": self.velocity(x)
+        }
+
+
+# ---------------- Load Data ----------------
+print(f"Loading features from: {DATA_PATH}")
+data = np.load(DATA_PATH)
+
+features = data["features"]  # shape (N, in_dim)
+labels = data["labels"]      # semantic labels
+
+X_train, X_val, y_train, y_val = train_test_split(features, labels, test_size=0.2, random_state=42)
 
 train_dataset = FeatureDataset(X_train, y_train)
 val_dataset = FeatureDataset(X_val, y_val)
@@ -42,77 +100,59 @@ val_dataset = FeatureDataset(X_val, y_val)
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-class VoteNetHead(nn.Module):
-    def __init__(self, in_dim=1024, num_classes=NUM_CLASSES):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(in_dim, 1024),
-            nn.BatchNorm1d(1024),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
-                                 
-            nn.Linear(in_dim, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
 
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
+# ---------------- Training ----------------
+model = VoteNetHead(in_dim=features.shape[1]).to(DEVICE)
+optimizer = optim.Adam(model.parameters(), lr=LR)
+criterion_ce = nn.CrossEntropyLoss()
+criterion_l1 = nn.SmoothL1Loss()
 
-            nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
-
-            nn.Linear(128, num_classes)
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-model = VoteNetHead(in_dim=features.shape[1], num_classes=NUM_CLASSES).to(DEVICE)
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-
-# Training loop
 for epoch in range(EPOCHS):
     model.train()
-    total_loss, correct, total = 0, 0, 0
-    for feats, labs in train_loader:
-        feats, labs = feats.to(DEVICE), labs.to(DEVICE)
-        optimizer.zero_grad()
+    train_loss = 0.0
+
+    for feats, labels in train_loader:
+        feats, labels = feats.to(DEVICE), labels.to(DEVICE)
         outputs = model(feats)
-        loss = criterion(outputs, labs)
+
+        # Loss: semantic classification only (you can extend to bbox, velocity if labels available)
+        loss_sem = criterion_ce(outputs["classification"]["semantic"], labels)
+
+        # Example: bbox + velocity regularization (dummy zeros if no gt)
+        loss_bbox = criterion_l1(outputs["bbox"]["center"], torch.zeros_like(outputs["bbox"]["center"]))
+        loss_vel = criterion_l1(outputs["velocity"], torch.zeros_like(outputs["velocity"]))
+
+        loss = loss_sem + 0.1 * loss_bbox + 0.1 * loss_vel
+
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.item() * feats.size(0)
-        _, predicted = torch.max(outputs, 1)
-        correct += (predicted == labs).sum().item()
-        total += labs.size(0)
-
-    train_acc = correct / total
-    avg_loss = total_loss / total
+        train_loss += loss.item()
 
     # Validation
     model.eval()
-    val_correct, val_total = 0, 0
+    val_loss = 0.0
+    correct, total = 0, 0
     with torch.no_grad():
-        for feats, labs in val_loader:
-            feats, labs = feats.to(DEVICE), labs.to(DEVICE)
+        for feats, labels in val_loader:
+            feats, labels = feats.to(DEVICE), labels.to(DEVICE)
             outputs = model(feats)
-            _, predicted = torch.max(outputs, 1)
-            val_correct += (predicted == labs).sum().item()
-            val_total += labs.size(0)
+            loss_sem = criterion_ce(outputs["classification"]["semantic"], labels)
+            loss_bbox = criterion_l1(outputs["bbox"]["center"], torch.zeros_like(outputs["bbox"]["center"]))
+            loss_vel = criterion_l1(outputs["velocity"], torch.zeros_like(outputs["velocity"]))
+            loss = loss_sem + 0.1 * loss_bbox + 0.1 * loss_vel
 
-    val_acc = val_correct / val_total
-    print(f"Epoch [{epoch+1}/{EPOCHS}] "
-          f"Loss: {avg_loss:.4f} "
-          f"Train Acc: {train_acc:.4f} "
-          f"Val Acc: {val_acc:.4f}")
+            val_loss += loss.item()
+            preds = outputs["classification"]["semantic"].argmax(dim=1)
+            correct += (preds == labels).sum().item()
+            total += labels.size(0)
 
-# Save model
-torch.save(model.state_dict(), "votenet_head.pth")
-print("Model saved as votenet_head.pth")
+    print(f"[Epoch {epoch+1}/{EPOCHS}] "
+          f"Train Loss: {train_loss/len(train_loader):.4f} | "
+          f"Val Loss: {val_loss/len(val_loader):.4f} | "
+          f"Val Acc: {correct/total:.4f}")
+
+# ---------------- Save ----------------
+torch.save(model.state_dict(), "checkpoints/votenet_head.pth")
+print("Model saved to votenet_head.pth")
