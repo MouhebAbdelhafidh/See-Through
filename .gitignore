@@ -25,5 +25,4 @@ checkpoints/
 # Extracted features with labels
 precomputed_data.npz
 
-
-votenet_head_finetuned.pth
+tracking_result.mp4

@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 # ---------------- Config ----------------
 DATA_PATH = "precomputed_data.npz"
 BATCH_SIZE = 32
-EPOCHS = 100
+EPOCHS = 0
 LR = 1e-4
 NUM_CLASSES = 11  
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
