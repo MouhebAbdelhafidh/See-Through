@@ -1,6 +1,12 @@
-# See-Through
+<p align="center">
+  <img src="https://lab-engineering.actia.tn/wp-content/uploads/2021/02/ACTIA_3coul_RVB.png" alt="Actia Logo" width="200"/>
+</p>
 
-This project focuses on an **Advanced Driver Assistance System (ADAS)** working specifically with **mmWave radars**.
+# ADAS with mmWave Radar Fusion
+
+**Internship Project @ Actia Engineering Services**  
+
+Advanced Driver Assistance System (ADAS) leveraging **mmWave radar fusion** for object detection, tracking, and scene understanding.
 
 ---
 
@@ -45,4 +51,4 @@ Below is the proposed workflow and the models I plan to explore, based on review
 
 ## Current Status
 
-The research is ongoing, and I may adjust the choice of models after conducting further experiments.
+Working on optimizing the Classification head.
