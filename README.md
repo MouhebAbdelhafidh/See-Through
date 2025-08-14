@@ -2,8 +2,7 @@
 
 # See-Through
 <p align="center">
-  <img src="<img width="2000" height="437" alt="image" src="https://github.com/user-attachments/assets/4dc352ab-fa51-4a89-910e-a3ed7283b7bc" />
-" alt="Actia Logo" width="200"/>
+  <img width="2000" height="437" alt="ACTIA_3coul_RVB" src="https://github.com/user-attachments/assets/f31bb398-cd21-487a-9074-d0d0c7ffc16f" />
 </p>
 **Internship Project @ Actia Engineering Services**  
 
