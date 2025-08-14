@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 # ---------------- Config ----------------
 DATA_PATH = "precomputed_data.npz"
 BATCH_SIZE = 32
-EPOCHS = 0
+EPOCHS = 10
 LR = 1e-4
 NUM_CLASSES = 11       # Semantic classes
 NUM_SIZE_CLUSTER = 8   # Size bins

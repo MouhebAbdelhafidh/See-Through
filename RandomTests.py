@@ -239,69 +239,69 @@ if __name__ == "__main__":
 ##################      VERY RANDOM TESTS    ######################################
 ###################################################################################
 
-# import numpy as np
+import numpy as np
 
-# # Load the npz file with pickle enabled
-# data = np.load("precomputed_data.npz", allow_pickle=True)
+# Load the npz file with pickle enabled
+data = np.load("precomputed_data.npz", allow_pickle=True)
 
-# # Show all keys
-# print("Keys in the file:", data.keys())
+# Show all keys
+print("Keys in the file:", data.keys())
 
-# # Show shapes for features and labels
-# print("features shape:", data["features"].shape)
-# print("labels shape:", data["labels"].shape)
+# Show shapes for features and labels
+print("features shape:", data["features"].shape)
+print("labels shape:", data["labels"].shape)
 
-# # If meta exists, show type and length
-# if "meta" in data:
-#     print("meta type:", type(data["meta"]))
-#     print("meta length:", len(data["meta"]))
+# If meta exists, show type and length
+if "meta" in data:
+    print("meta type:", type(data["meta"]))
+    print("meta length:", len(data["meta"]))
 
-# # Show first two records
-# print("\nFirst 2 feature vectors:\n", data["features"][:2])
-# print("\nFirst 2 labels:", data["labels"][:2])
+# Show first two records
+print("\nFirst 2 feature vectors:\n", data["features"][:2])
+print("\nFirst 2 labels:", data["labels"][:2])
 
-# if "meta" in data:
-#     print("\nFirst 2 meta entries:", data["meta"][:2])
+if "meta" in data:
+    print("\nFirst 2 meta entries:", data["meta"][:2])
 
 
 
-# Inspect .h5 file
-import h5py
+# # Inspect .h5 file
+# import h5py
 
-def print_attrs(name, obj):
-    print(f"\n{name}")
-    for key, val in obj.attrs.items():
-        print(f"  Attribute - {key}: {val}")
+# def print_attrs(name, obj):
+#     print(f"\n{name}")
+#     for key, val in obj.attrs.items():
+#         print(f"  Attribute - {key}: {val}")
 
-def inspect_h5_file(filepath):
-    with h5py.File(filepath, "r") as f:
-        print(f"Inspecting HDF5 file: {filepath}")
-        print(f"Keys (groups/datasets) at root level: {list(f.keys())}")
+# def inspect_h5_file(filepath):
+#     with h5py.File(filepath, "r") as f:
+#         print(f"Inspecting HDF5 file: {filepath}")
+#         print(f"Keys (groups/datasets) at root level: {list(f.keys())}")
 
-        # Recursively visit all groups/datasets
-        f.visititems(print_attrs)
+#         # Recursively visit all groups/datasets
+#         f.visititems(print_attrs)
 
-        print("\nDataset samples:")
-        def print_dataset(name, obj):
-            if isinstance(obj, h5py.Dataset):
-                print(f"\nDataset: {name}")
-                print(f"  Shape: {obj.shape}")
-                print(f"  Dtype: {obj.dtype}")
-                # Print first few elements to get an idea of data (if not too big)
-                data_sample = obj[()]  # read all data (may be large)
-                # For large datasets, print only a slice or summary
-                if data_sample.size > 10:
-                    print(f"  Sample data (first 10 elements): {data_sample.flatten()[:10]}")
-                else:
-                    print(f"  Data: {data_sample}")
+#         print("\nDataset samples:")
+#         def print_dataset(name, obj):
+#             if isinstance(obj, h5py.Dataset):
+#                 print(f"\nDataset: {name}")
+#                 print(f"  Shape: {obj.shape}")
+#                 print(f"  Dtype: {obj.dtype}")
+#                 # Print first few elements to get an idea of data (if not too big)
+#                 data_sample = obj[()]  # read all data (may be large)
+#                 # For large datasets, print only a slice or summary
+#                 if data_sample.size > 10:
+#                     print(f"  Sample data (first 10 elements): {data_sample.flatten()[:10]}")
+#                 else:
+#                     print(f"  Data: {data_sample}")
 
-        f.visititems(print_dataset)
+#         f.visititems(print_dataset)
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python inspect_h5.py <path_to_file.h5>")
-        sys.exit(1)
+# if __name__ == "__main__":
+#     import sys
+#     if len(sys.argv) != 2:
+#         print("Usage: python inspect_h5.py <path_to_file.h5>")
+#         sys.exit(1)
     
-    filepath = sys.argv[1]
-    inspect_h5_file(filepath)
+#     filepath = sys.argv[1]
+#     inspect_h5_file(filepath)
