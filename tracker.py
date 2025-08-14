@@ -1,213 +1,207 @@
+# tracker.py
+import os
 import numpy as np
 import h5py
-import torch
-import torch.nn as nn
 import cv2
 from scipy.optimize import linear_sum_assignment
 from filterpy.kalman import KalmanFilter
 
-# ---------------- Your VoteNetHead class ---------------- #
-NUM_CLASSES = 11
+# ---------------- Config ---------------- #
+H5_PATH = r"ProcessedData/sequence_1.h5"
+VIDEO_OUT = "tracking_result.mp4"
+FPS = 10
+FRAME_SIZE = (800, 800)
+SCALE_M_TO_PX = 20.0
+CENTER_PX = np.array([400.0, 400.0], dtype=np.float32)
+DIST_THRESHOLD_PX = 60.0
+MAX_SKIPPED_FRAMES = 5
+VR_MOVING_THRESH = 0.5
 
-class VoteNetHead(nn.Module):
-    def __init__(self, in_dim=1024, num_classes=NUM_CLASSES):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(in_dim, 1024),
-            nn.BatchNorm1d(1024),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
+CLASS_COLORS = [
+    (255, 0, 0), (255, 165, 0), (139, 0, 139), (0, 0, 255),
+    (0, 255, 255), (0, 255, 0), (255, 255, 0), (255, 192, 203),
+    (165, 42, 42), (0, 128, 0), (128, 128, 128), (255, 255, 255)
+]
 
-            nn.Linear(1024, 512),
-            nn.BatchNorm1d(512),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
-
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
-
-            nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0),
-
-            nn.Linear(128, num_classes)
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-
-# ---------------- Tracker and Track classes ---------------- #
+# ---------------- Simple Track + Tracker ---------------- #
 class Track:
-    def __init__(self, detection, track_id):
+    def __init__(self, detection_xy_px, track_id, class_id=None):
         self.kf = KalmanFilter(dim_x=4, dim_z=2)
         self.kf.F = np.array([[1, 0, 1, 0],
                               [0, 1, 0, 1],
                               [0, 0, 1, 0],
-                              [0, 0, 0, 1]])
+                              [0, 0, 0, 1]], dtype=np.float32)
         self.kf.H = np.array([[1, 0, 0, 0],
-                              [0, 1, 0, 0]])
-        self.kf.R *= 0.01
-        self.kf.P *= 10.
+                              [0, 1, 0, 0]], dtype=np.float32)
+        self.kf.R *= 1.0
+        self.kf.P *= 50.0
         self.kf.Q *= 0.01
 
-        self.kf.x[:2] = np.array(detection).reshape(2, 1)
-
+        self.kf.x[:2] = np.asarray(detection_xy_px, dtype=np.float32).reshape(2, 1)
         self.track_id = track_id
+        self.class_id = class_id
+        self.actual_label = -1
         self.skipped_frames = 0
-        self.prediction = detection
-        self.label_id = None
-        self.predicted_id = None
+        self.hits = 1
+        self.age = 0
 
-    def update(self, detection):
-        self.skipped_frames = 0
-        self.kf.update(detection)
-        self.prediction = self.kf.x[:2].reshape(1, -1)[0]
+    @property
+    def pos(self):
+        return self.kf.x[:2].reshape(-1)
 
     def predict(self):
         self.kf.predict()
-        self.prediction = self.kf.x[:2].reshape(1, -1)[0]
-        return self.prediction
+        self.age += 1
+        return self.pos
 
+    def update(self, detection_xy_px, class_id=None):
+        self.kf.update(np.asarray(detection_xy_px, dtype=np.float32))
+        self.skipped_frames = 0
+        self.hits += 1
+        if class_id is not None:
+            self.class_id = int(class_id)
 
 class Tracker:
-    def __init__(self, max_skipped_frames=5, dist_threshold=3.0):
+    def __init__(self, max_skipped_frames=MAX_SKIPPED_FRAMES, dist_threshold_px=DIST_THRESHOLD_PX):
         self.max_skipped_frames = max_skipped_frames
-        self.dist_threshold = dist_threshold
+        self.dist_threshold_px = dist_threshold_px
         self.tracks = []
-        self.track_id_count = 0
+        self._next_id = 0
 
-    def update(self, detections, labels, preds):
-        if len(self.tracks) == 0:
-            for i, det in enumerate(detections):
-                trk = Track(det, self.track_id_count)
-                trk.label_id = labels[i]
-                trk.predicted_id = preds[i]
-                self.track_id_count += 1
-                self.tracks.append(trk)
+    def _make_cost(self, detections_px):
+        N, M = len(self.tracks), len(detections_px)
+        cost = np.zeros((N, M), dtype=np.float32)
+        for i, trk in enumerate(self.tracks):
+            trk_xy = trk.pos
+            diffs = detections_px - trk_xy[None, :]
+            cost[i, :] = np.sqrt(np.sum(diffs * diffs, axis=1))
+        return cost
+
+    def update(self, detections_px, pred_labels, actual_labels=None):
+        if actual_labels is None:
+            actual_labels = [-1] * len(detections_px)
+
+        # Predict existing tracks
+        for trk in self.tracks:
+            trk.predict()
+
+        if len(detections_px) == 0:
+            for trk in self.tracks:
+                trk.skipped_frames += 1
+            self.tracks = [t for t in self.tracks if t.skipped_frames <= self.max_skipped_frames]
             return
 
-        N = len(self.tracks)
-        M = len(detections)
-        cost = np.zeros((N, M))
+        if len(self.tracks) == 0:
+            for det, p, a in zip(detections_px, pred_labels, actual_labels):
+                trk = Track(det, self._next_id, p)
+                trk.actual_label = a
+                self.tracks.append(trk)
+                self._next_id += 1
+            return
 
-        for i, trk in enumerate(self.tracks):
-            for j, det in enumerate(detections):
-                cost[i][j] = np.linalg.norm(trk.prediction - det)
-
+        # Assignment
+        cost = self._make_cost(detections_px)
         row_ind, col_ind = linear_sum_assignment(cost)
 
         assigned_tracks = set()
         assigned_dets = set()
 
         for r, c in zip(row_ind, col_ind):
-            if cost[r][c] > self.dist_threshold:
-                continue
-            self.tracks[r].update(detections[c])
-            self.tracks[r].label_id = labels[c]
-            self.tracks[r].predicted_id = preds[c]
-            assigned_tracks.add(r)
-            assigned_dets.add(c)
+            if cost[r, c] <= self.dist_threshold_px:
+                self.tracks[r].update(detections_px[c], pred_labels[c])
+                self.tracks[r].actual_label = actual_labels[c]
+                assigned_tracks.add(r)
+                assigned_dets.add(c)
 
         for i, trk in enumerate(self.tracks):
             if i not in assigned_tracks:
                 trk.skipped_frames += 1
-                trk.predict()
 
         self.tracks = [t for t in self.tracks if t.skipped_frames <= self.max_skipped_frames]
 
-        for j, det in enumerate(detections):
+        for j, det in enumerate(detections_px):
             if j not in assigned_dets:
-                trk = Track(det, self.track_id_count)
-                trk.label_id = labels[j]
-                trk.predicted_id = preds[j]
-                self.track_id_count += 1
+                trk = Track(det, self._next_id, pred_labels[j])
+                trk.actual_label = actual_labels[j]
                 self.tracks.append(trk)
-
+                self._next_id += 1
 
 # ---------------- Visualization ---------------- #
+def world_to_image(xy_m):
+    return (xy_m.astype(np.float32) * SCALE_M_TO_PX) + CENTER_PX
+
 def draw_tracks(frame, tracks):
     for trk in tracks:
-        x, y = int(trk.prediction[0]), int(trk.prediction[1])
-        cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
-        text = f"ID:{trk.track_id} L:{trk.label_id} P:{trk.predicted_id}"
-        cv2.putText(frame, text, (x + 8, y - 8), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.4, (255, 255, 255), 1)
+        x, y = trk.pos.astype(np.int32)
+        pred_label = int(trk.class_id) if trk.class_id is not None else -1
+        actual_label = getattr(trk, "actual_label", -1)
+        color = CLASS_COLORS[pred_label if 0 <= pred_label < len(CLASS_COLORS) else -1]
+        cv2.circle(frame, (x, y), 5, color, -1)
+        text = f"P:{pred_label} C:{actual_label}"
+        cv2.putText(frame, text, (x + 8, y - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1)
     return frame
-
 
 # ---------------- Main ---------------- #
 def main():
-    h5_path = "ProcessedData/sequence_1.h5"
-    classifier_path = "checkpoints/votenet_head_finetuned.pth"
+    print(f"Opening data file: {H5_PATH}")
+    with h5py.File(H5_PATH, "r") as f:
+        detections = f["detections"]
+        frames = f["frames"]
+        frames_sorted = sorted(frames, key=lambda r: int(r["timestamp"]))
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        width, height = FRAME_SIZE
+        out = cv2.VideoWriter(VIDEO_OUT, cv2.VideoWriter_fourcc(*"mp4v"), FPS, (width, height))
 
-    # Load classifier only (assuming features pre-extracted or dummy features here)
-    print("Loading classifier...")
-    classifier = VoteNetHead(in_dim=1024, num_classes=NUM_CLASSES).to(device)
-    classifier.load_state_dict(torch.load(classifier_path, map_location=device))
-    classifier.eval()
+        tracker = Tracker(max_skipped_frames=MAX_SKIPPED_FRAMES, dist_threshold_px=DIST_THRESHOLD_PX)
 
-    tracker = Tracker(max_skipped_frames=5, dist_threshold=3.0)
+        for frame_info in frames_sorted: 
+            ts = int(frame_info["timestamp"])
+            s = int(frame_info["detection_start_idx"])
+            e = int(frame_info["detection_end_idx"])
+            dets = detections[s:e]
 
-    print(f"Opening data file: {h5_path}")
-    with h5py.File(h5_path, 'r') as f:
-        radar_data = f['radar_data']  # Structured array with fields including x_cc, y_cc, label_id, timestamp
+            frame = np.zeros((height, width, 3), dtype=np.uint8)
 
-        # Group points by timestamp for frame-wise processing
-        timestamps = np.unique(radar_data['timestamp'])
-        print(f"Total frames (unique timestamps): {len(timestamps)}")
+            if dets.size > 0:
+                if "vr_compensated" in dets.dtype.names:
+                    vr_used = dets["vr_compensated"]
+                elif "vr" in dets.dtype.names:
+                    vr_used = dets["vr"]
+                else:
+                    vr_used = np.ones(len(dets), dtype=np.float32) * VR_MOVING_THRESH
+                moving_mask = np.abs(vr_used) >= VR_MOVING_THRESH
+                dets = dets[moving_mask]
 
-        # Open video writer
-        out = cv2.VideoWriter("tracking_result.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 10, (800, 800))
-
-        for ts in timestamps:
-            # Select points for this timestamp
-            mask = radar_data['timestamp'] == ts
-            points = radar_data[mask]
-
-            frame = np.zeros((800, 800, 3), dtype=np.uint8)
-
-            if len(points) == 0:
-                detections = np.array([])
-                preds = []
-                labels = []
+            if dets.size == 0:
+                dets_px = np.empty((0, 2), dtype=np.float32)
+                pred_labels = []
+                actual_labels = []
             else:
-                # Extract x_cc, y_cc for detection positions (center coordinates)
-                pts_xy = np.vstack([points['x_cc'], points['y_cc']]).T
+                xy_m = np.stack([dets["x_cc"], dets["y_cc"]], axis=1).astype(np.float32)
+                dets_px = world_to_image(xy_m)
+                if "predicted_id" in dets.dtype.names:
+                    pred_labels = dets["predicted_id"].astype(int).tolist()
+                else:
+                    pred_labels = dets["label_id"].astype(int).tolist()
+                actual_labels = dets["label_id"].astype(int).tolist()
 
-                # Scale and shift points to image coordinates
-                pts_img = pts_xy * 20 + 400  # Adjust scaling to fit your frame size
+            tracker.update(dets_px, pred_labels, actual_labels)
+            draw_tracks(frame, tracker.tracks)
 
-                detections = pts_img.astype(np.float32)
-
-                # Dummy features (since backbone not loaded here, just use zeros or random)
-                # In your pipeline, extract features properly!
-                features = torch.zeros((len(detections), 1024), device=device)  # Replace with real features!
-
-                with torch.no_grad():
-                    outputs = classifier(features)
-                    preds = torch.argmax(outputs, dim=1).cpu().numpy()
-
-                labels = points['label_id'].tolist()
-
-            tracker.update(detections, labels, preds)
-            frame = draw_tracks(frame, tracker.tracks)
-
-            # Show timestamp on frame
-            cv2.putText(frame, f"Timestamp: {ts}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
+            cv2.putText(frame, f"Timestamp: {ts}", (10, 22),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
+            cv2.putText(frame, f"Detections: {len(dets_px)}  Tracks: {len(tracker.tracks)}",
+                        (10, 44), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
 
             out.write(frame)
-            cv2.imshow("Tracking", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            cv2.imshow("Radar Tracking (moving objects)", frame)
+            if cv2.waitKey(0) & 0xFF == ord('q'):
                 break
 
         out.release()
         cv2.destroyAllWindows()
+        print(f"Saved: {VIDEO_OUT}")
 
 if __name__ == "__main__":
     main()

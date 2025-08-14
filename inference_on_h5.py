@@ -64,7 +64,6 @@ def main():
     avg_actual_velocity = (np.mean(actual_vx), np.mean(actual_vy))
     print(f"Estimated average actual velocity (vx, vy): {avg_actual_velocity}")
 
-    # Print sample of actual labels and velocities for first 10 points
     print("\nSample of actual labels and velocities for first 10 points:")
     for i in range(min(10, len(actual_labels))):
         print(f"Point {i}: Actual label={actual_labels[i]}, vr={actual_vr[i]:.2f}, azimuth={actual_azimuth[i]:.2f}")
