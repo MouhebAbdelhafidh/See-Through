@@ -9,12 +9,13 @@ from sklearn.model_selection import train_test_split
 
 # ---------------- Config ----------------
 DATA_PATH = "precomputed_data.npz"
+MODEL_PATH = "checkpoints/votenet_head.pth"
 BATCH_SIZE = 32
-EPOCHS = 10
+EPOCHS = 100
 LR = 1e-4
-NUM_CLASSES = 11       # Semantic classes
-NUM_SIZE_CLUSTER = 8   # Size bins
-NUM_HEADING_BIN = 12   # Heading bins
+NUM_CLASSES = 11       
+NUM_SIZE_CLUSTER = 8   
+NUM_HEADING_BIN = 12   
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -102,7 +103,10 @@ val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
 # ---------------- Training ----------------
+
 model = VoteNetHead(in_dim=features.shape[1]).to(DEVICE)
+model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+print("Loaded model weights")
 optimizer = optim.Adam(model.parameters(), lr=LR)
 criterion_ce = nn.CrossEntropyLoss()
 criterion_l1 = nn.SmoothL1Loss()
