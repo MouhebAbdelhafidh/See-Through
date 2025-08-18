@@ -266,42 +266,47 @@ if __name__ == "__main__":
 
 
 # Inspect .h5 file
-import h5py
+# import h5py
 
-def print_attrs(name, obj):
-    print(f"\n{name}")
-    for key, val in obj.attrs.items():
-        print(f"  Attribute - {key}: {val}")
+# def print_attrs(name, obj):
+#     print(f"\n{name}")
+#     for key, val in obj.attrs.items():
+#         print(f"  Attribute - {key}: {val}")
 
-def inspect_h5_file(filepath):
-    with h5py.File(filepath, "r") as f:
-        print(f"Inspecting HDF5 file: {filepath}")
-        print(f"Keys (groups/datasets) at root level: {list(f.keys())}")
+# def inspect_h5_file(filepath):
+#     with h5py.File(filepath, "r") as f:
+#         print(f"Inspecting HDF5 file: {filepath}")
+#         print(f"Keys (groups/datasets) at root level: {list(f.keys())}")
 
-        # Recursively visit all groups/datasets
-        f.visititems(print_attrs)
+#         # Recursively visit all groups/datasets
+#         f.visititems(print_attrs)
 
-        print("\nDataset samples:")
-        def print_dataset(name, obj):
-            if isinstance(obj, h5py.Dataset):
-                print(f"\nDataset: {name}")
-                print(f"  Shape: {obj.shape}")
-                print(f"  Dtype: {obj.dtype}")
-                # Print first few elements to get an idea of data (if not too big)
-                data_sample = obj[()]  # read all data (may be large)
-                # For large datasets, print only a slice or summary
-                if data_sample.size > 10:
-                    print(f"  Sample data (first 10 elements): {data_sample.flatten()[:10]}")
-                else:
-                    print(f"  Data: {data_sample}")
+#         print("\nDataset samples:")
+#         def print_dataset(name, obj):
+#             if isinstance(obj, h5py.Dataset):
+#                 print(f"\nDataset: {name}")
+#                 print(f"  Shape: {obj.shape}")
+#                 print(f"  Dtype: {obj.dtype}")
+#                 # Print first few elements to get an idea of data (if not too big)
+#                 data_sample = obj[()]  # read all data (may be large)
+#                 # For large datasets, print only a slice or summary
+#                 if data_sample.size > 10:
+#                     print(f"  Sample data (first 10 elements): {data_sample.flatten()[:10]}")
+#                 else:
+#                     print(f"  Data: {data_sample}")
 
-        f.visititems(print_dataset)
+#         f.visititems(print_dataset)
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python inspect_h5.py <path_to_file.h5>")
-        sys.exit(1)
+# if __name__ == "__main__":
+#     import sys
+#     if len(sys.argv) != 2:
+#         print("Usage: python inspect_h5.py <path_to_file.h5>")
+#         sys.exit(1)
     
-    filepath = sys.argv[1]
-    inspect_h5_file(filepath)
+#     filepath = sys.argv[1]
+#     inspect_h5_file(filepath)
+with h5py.File("RadarScenes/data/sequence_1/radar_data.h5", "r") as f:
+    print(list(f.keys()))  # likely ['radar_data', 'odometry']
+    dset = f["radar_data"]
+    print(dset.dtype.names)  # shows field names inside radar_data
+

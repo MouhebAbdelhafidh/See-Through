@@ -102,22 +102,18 @@ def fuse_cluster(indices, det, weights):
     if "rcs" in det.dtype.names:
         fused["rcs"] = wavg("rcs")
 
-    # label_id -> majority vote (if exists)
     if "label_id" in det.dtype.names:
         fused["label_id"] = majority_vote(det["label_id"][idx])
-    # track_id -> you can also majority vote or set -1
     if "track_id" in det.dtype.names:
         fused["track_id"] = majority_vote(det["track_id"][idx])
 
-    # Keep frame_id / timestamp if they exist (all should match in a cluster)
     for meta in ["frame_id", "timestamp"]:
         if meta in det.dtype.names:
             fused[meta] = det[meta][idx][0]
 
-    # Optionally annotate how many raw points merged and which sensors
     fused["num_merged"] = len(idx)
     if "sensor_id" in det.dtype.names:
-        fused["sensor_id"] = 255  # 255 == "fused" (change as you like)
+        fused["sensor_id"] = 255  # 255 == "fused" 
 
     return fused
 

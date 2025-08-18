@@ -49,7 +49,6 @@ def main():
     # Predicted velocity (vx, vy)
     pred_velocity = outputs["velocity"].cpu().numpy()[0]
 
-    # Print predicted label and actual label IDs (unique)
     print(f"Predicted label_id: {pred_label_id}")
     print(f"Actual label_ids (unique in frame): {np.unique(actual_labels)}")
 

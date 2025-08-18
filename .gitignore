@@ -26,3 +26,4 @@ checkpoints/
 precomputed_data.npz
 # Tracking demo
 tracking_result.mp4
+tracking_output.mp4
