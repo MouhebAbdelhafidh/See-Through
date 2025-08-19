@@ -24,6 +24,4 @@ __pycache__/
 checkpoints/
 # Extracted features with labels
 precomputed_data.npz
-# Tracking demo
-tracking_result.mp4
-tracking_output.mp4
+first_50_results.json

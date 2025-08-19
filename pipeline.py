@@ -8,6 +8,7 @@ from scipy.optimize import linear_sum_assignment
 from filterpy.kalman import KalmanFilter
 import torch.nn as nn
 import torch.nn.functional as F
+from final_model import FinalRadarModel
 
 try:
     from scipy.spatial import cKDTree
@@ -179,44 +180,6 @@ def group_by_frame(detections, frame_key):
         idx = np.where(values == v)[0]
         yield v, idx
 
-# ------------------ Model Definition ------------------ #
-class SimpleBackbone(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.fc1 = nn.Linear(7, 64)  # 3 (xyz) + 4 (features)
-        self.fc2 = nn.Linear(64, 128)
-        self.fc3 = nn.Linear(128, 256)
-        
-    def forward(self, xyz, features):
-        x = torch.cat([xyz, features], dim=-1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        global_feat = torch.max(x, dim=1)[0]  # Global max pooling
-        return global_feat, None, None
-
-class SimpleHead(nn.Module):
-    def __init__(self, num_classes=NUM_CLASSES):
-        super().__init__()
-        self.fc = nn.Linear(256, num_classes)
-        
-    def forward(self, x):
-        return {
-            "classification": {
-                "semantic": self.fc(x).unsqueeze(1)  # [B, 1, num_classes]
-            }
-        }
-
-class FinalRadarModel(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.backbone = SimpleBackbone()
-        self.head = SimpleHead()
-
-    def forward(self, xyz, point_features):
-        global_feat, _, _ = self.backbone(xyz, point_features)
-        return self.head(global_feat), None
-
 # ------------------ Tracking ------------------ #
 class Track:
     def __init__(self, detection_xy_px, track_id, class_id=None):
@@ -330,35 +293,61 @@ def compute_features(fused_data):
     
     return xyz, features
 
+def predict_labels_for_frame(frame_data, model, device):
+    """
+    frame_data: structured numpy array containing x_cc, y_cc, vr_compensated, rcs, etc.
+    Returns: pred_labels (numpy array, N)
+    """
+    if len(frame_data) == 0:
+        return np.array([], dtype=np.int32)
+
+    # Convert to tensors
+    xyz = np.stack([frame_data['x_cc'], frame_data['y_cc']], axis=1)  # (N,2)
+    features = np.stack([
+        frame_data['vr_compensated'] if 'vr_compensated' in frame_data.dtype.names else np.zeros(len(frame_data)),
+        frame_data['rcs'] if 'rcs' in frame_data.dtype.names else np.zeros(len(frame_data)),
+        np.sqrt(frame_data['x_cc']**2 + frame_data['y_cc']**2),
+        np.arctan2(frame_data['y_cc'], frame_data['x_cc']),
+        np.zeros(len(frame_data))  # placeholder for 5th channel if needed
+    ], axis=1)
+
+    xyz_tensor = torch.from_numpy(xyz).float().unsqueeze(0).to(device)       # [1, N, 2]
+    features_tensor = torch.from_numpy(features).float().unsqueeze(0).to(device)  # [1, N, 5]
+
+    with torch.no_grad():
+        outputs, _ = model(xyz_tensor, features_tensor)
+    
+    # Choose semantic labels as predicted label_id
+    semantic_scores = outputs["classification"]["semantic"][0]  # [N, num_classes]
+    pred_labels = torch.argmax(semantic_scores, dim=-1).cpu().numpy()  # [N]
+
+    return pred_labels
+
 # ------------------ Main Pipeline ------------------ #
 import argparse
 import h5py
 import cv2
 import numpy as np
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, required=True, help="Processed H5 file with tracking results")
+    parser.add_argument("--input", type=str, required=True, help="Processed H5 file with radar data")
     parser.add_argument("--output_video", type=str, default="tracking_output.mp4", help="Output MP4 file")
     parser.add_argument("--fps", type=int, default=10, help="Video FPS")
     parser.add_argument("--size", type=int, default=800, help="Video size (square)")
     args = parser.parse_args()
 
-    # open file
+    # Load H5 radar data
     with h5py.File(args.input, "r") as f:
         if "radar_data" in f:
             data = f["radar_data"][:]
         else:
             raise ValueError("H5 file must contain 'radar_data' dataset.")
 
-        # extract fields
-        x = data["x_cc"]
-        y = data["y_cc"]
-        track_ids = data["track_id"] if "track_id" in data.dtype.names else np.full(len(x), -1)
-        velocities = data["vr_compensated"] if "vr_compensated" in data.dtype.names else None
-        bboxes = None  # RadarScenes doesn't have bboxes by default
+    # Determine frame grouping key
+    frame_key = "frame_id" if "frame_id" in data.dtype.names else "timestamp"
+    tracker = Tracker()
 
-    # setup video writer
+    # Setup video writer
     video_out = cv2.VideoWriter(
         args.output_video,
         cv2.VideoWriter_fourcc(*"mp4v"),
@@ -366,34 +355,67 @@ def main():
         (args.size, args.size),
     )
 
-    # normalize coordinates to fit video size
-    x_norm = np.interp(x, (np.min(x), np.max(x)), (0, args.size - 1)).astype(int)
-    y_norm = np.interp(y, (np.min(y), np.max(y)), (0, args.size - 1)).astype(int)
+    # Load model
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = FinalRadarModel().to(DEVICE)
+    model.load_pretrained(
+        backbone_path="checkpoints/pointnetpp_backbone.pth",
+        head_path="checkpoints/votenet_head.pth",
+        device=DEVICE
+    )
+    model.eval()
 
-    # iterate per frame
-    num_frames = len(x_norm)
-    for idx in range(num_frames):
+    # Iterate over frames
+    for frame_val, idxs in group_by_frame(data, frame_key):
+        frame_data = data[idxs]
+        if len(frame_data) == 0:
+            continue
+
+        # Convert world coordinates to pixels
+        xy_m = np.stack([frame_data["x_cc"], frame_data["y_cc"]], axis=1)
+        xy_px = world_to_image(xy_m)
+
+        # Compute 3D coordinates and features
+        xyz, features = compute_features(frame_data)
+        xyz_tensor = torch.from_numpy(xyz).float().unsqueeze(0).to(DEVICE)       # [1, N, 3]
+        features_tensor = torch.from_numpy(features).float().unsqueeze(0).to(DEVICE)  # [1, N, 4]
+
+        # Model inference
+        with torch.no_grad():
+            outputs, _ = model(xyz_tensor, features_tensor)
+
+        # Semantic label prediction
+        semantic_scores = outputs["classification"]["semantic"][0]  # [N, num_classes]
+        pred_labels = torch.argmax(semantic_scores, dim=-1).cpu().numpy()
+
+        # Velocities for visualization
+        velocities = frame_data["vr_compensated"] if "vr_compensated" in frame_data.dtype.names else np.zeros(len(xy_px))
+
+        # Update tracker
+        tracker.update(xy_px, pred_labels)
+
+        # Draw frame
         frame_img = np.zeros((args.size, args.size, 3), dtype=np.uint8)
+        for trk in tracker.tracks:
+            cx, cy = int(trk.pos[0]), int(trk.pos[1])
+            tid = trk.track_id
+            cls = trk.class_id
+            # Closest detection to show velocity
+            dists = np.linalg.norm(xy_px - trk.pos, axis=1)
+            v = velocities[np.argmin(dists)] if len(dists) > 0 else 0.0
 
-        cx, cy = x_norm[idx], y_norm[idx]
-        tid = track_ids[idx]
-
-        # draw detection
-        cv2.circle(frame_img, (cx, cy), 4, (0, 255, 0), -1)
-        cv2.putText(frame_img, str(tid), (cx + 5, cy - 5),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-
-        # optional: draw velocity as text
-        if velocities is not None:
-            v = velocities[idx]
-            cv2.putText(frame_img, f"v:{v:.1f}", (cx + 5, cy + 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 255), 1)
+            # Draw circle and labels
+            color = CLASS_COLORS[cls] if 0 <= cls < len(CLASS_COLORS) else (255, 255, 255)
+            cv2.circle(frame_img, (cx, cy), 5, color, -1)
+            cv2.putText(frame_img, f"ID:{tid} L:{cls} v:{v:.1f}", (cx + 5, cy - 5),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
 
         video_out.write(frame_img)
 
     video_out.release()
-    print(f"[INFO] Tracking video saved → {args.output_video}")
+    print(f"[INFO] Tracking video saved to {args.output_video}")
 
 
 if __name__ == "__main__":
     main()
+

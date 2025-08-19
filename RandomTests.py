@@ -265,8 +265,8 @@ if __name__ == "__main__":
 
 
 
-# Inspect .h5 file
-# import h5py
+
+import h5py
 
 # def print_attrs(name, obj):
 #     print(f"\n{name}")
@@ -305,8 +305,9 @@ if __name__ == "__main__":
     
 #     filepath = sys.argv[1]
 #     inspect_h5_file(filepath)
+
 with h5py.File("RadarScenes/data/sequence_1/radar_data.h5", "r") as f:
-    print(list(f.keys()))  # likely ['radar_data', 'odometry']
+    print(list(f.keys()))  
     dset = f["radar_data"]
     print(dset.dtype.names)  # shows field names inside radar_data
 

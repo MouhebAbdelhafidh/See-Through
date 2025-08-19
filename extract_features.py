@@ -23,7 +23,7 @@ def farthest_point_sample(xyz, npoint):
     
     for i in range(npoint):
         centroids[:, i] = farthest
-        centroid = xyz[torch.arange(B), farthest, :].view(B, 1, 2)
+        centroid = xyz[torch.arange(B), farthest, :].view(B, 1, xyz.shape[2])
         dist = torch.sum((xyz - centroid) ** 2, -1)
         mask = dist < distance
         distance[mask] = dist[mask]
