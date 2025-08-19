@@ -306,8 +306,26 @@ import h5py
 #     filepath = sys.argv[1]
 #     inspect_h5_file(filepath)
 
-with h5py.File("RadarScenes/data/sequence_1/radar_data.h5", "r") as f:
-    print(list(f.keys()))  
-    dset = f["radar_data"]
-    print(dset.dtype.names)  # shows field names inside radar_data
+# with h5py.File("RadarScenes/data/sequence_1/radar_data.h5", "r") as f:
+#     print(list(f.keys()))  
+#     dset = f["radar_data"]
+#     print(dset.dtype.names)  # shows field names inside radar_data
 
+import h5py
+
+H5_PATH = "RadarScenes/data/sequence_148/radar_data.h5"
+
+with h5py.File(H5_PATH, "r") as f:
+    radar_data = f["radar_data"]
+    first_record = radar_data[0]
+
+    # Check what type each field has
+    for field in first_record.dtype.names:
+        print(field, first_record[field].shape, type(first_record[field]))
+
+    # Example check for multiple points in x_cc
+    x_data = first_record["x_cc"]
+    if hasattr(x_data, "__len__") and len(x_data) > 1:
+        print("This record contains multiple points")
+    else:
+        print("Single point record")
