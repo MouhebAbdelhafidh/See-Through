@@ -28,3 +28,9 @@ Product/precomputed_data.npz
 Product/first_50_results.json
 # tracking demo with the final model predictions on raw data
 Product/tracking_result_with_preds.mp4
+
+
+########################
+#### RESEARCH FILES ####
+########################
+SplitBySensor/

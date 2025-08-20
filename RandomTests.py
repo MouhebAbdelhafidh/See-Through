@@ -312,20 +312,26 @@ import h5py
 #     print(dset.dtype.names)  # shows field names inside radar_data
 
 import h5py
+import h5py
+import numpy as np
 
-H5_PATH = "RadarScenes/data/sequence_148/radar_data.h5"
+# Path to your .h5 file
+H5_PATH = "SplitBySensor/sensor_0/sensor_0_detections.h5"
 
+def print_first_records(name, obj):
+    if isinstance(obj, h5py.Dataset):
+        print(f"\nDataset: {name}")
+        data = obj[()]  # load entire dataset
+        print("Shape:", data.shape)
+        # If data is structured (has named fields)
+        if isinstance(data, np.ndarray) and data.dtype.names is not None:
+            print("Features:", data.dtype.names)
+            print("First 5 records:")
+            for i in range(min(5, len(data))):
+                print({feature: data[i][feature] for feature in data.dtype.names})
+        else:
+            print("First 5 records:", data[:5])
+
+# Open the file and inspect
 with h5py.File(H5_PATH, "r") as f:
-    radar_data = f["radar_data"]
-    first_record = radar_data[0]
-
-    # Check what type each field has
-    for field in first_record.dtype.names:
-        print(field, first_record[field].shape, type(first_record[field]))
-
-    # Example check for multiple points in x_cc
-    x_data = first_record["x_cc"]
-    if hasattr(x_data, "__len__") and len(x_data) > 1:
-        print("This record contains multiple points")
-    else:
-        print("Single point record")
+    f.visititems(print_first_records)

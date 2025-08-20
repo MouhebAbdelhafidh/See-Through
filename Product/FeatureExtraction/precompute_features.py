@@ -1,4 +1,3 @@
-# precompute_features.py
 import os
 import glob
 import h5py
