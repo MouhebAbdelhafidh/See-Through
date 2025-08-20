@@ -5,7 +5,7 @@ import torch.nn as nn
 import numpy as np
 import json
 from votenet_head import VoteNetHead
-from extract_features import PointNet2Backbone
+from Product.FeatureExtraction.extract_features import PointNet2Backbone
 
 
 class FinalRadarModel(nn.Module):

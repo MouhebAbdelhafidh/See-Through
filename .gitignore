@@ -23,8 +23,8 @@ __pycache__/
 # Models checkpoints
 checkpoints/
 # Extracted features with labels
-precomputed_data.npz
+Product/precomputed_data.npz
 # First 50records with final model (Just to test the final model)
-first_50_results.json
+Product/first_50_results.json
 # tracking demo with the final model predictions on raw data
-tracking_result_with_preds.mp4
+Product/tracking_result_with_preds.mp4

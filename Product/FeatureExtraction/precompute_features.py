@@ -6,8 +6,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-# Import your backbone
-from extract_features import PointNet2Backbone
+from Product.FeatureExtraction.extract_features import PointNet2Backbone
 
 # ------------------ Config ------------------
 DATA_DIR = "FusedData"

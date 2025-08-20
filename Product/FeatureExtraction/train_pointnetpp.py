@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from extract_features import PointNet2Backbone  
+from Product.FeatureExtraction.extract_features import PointNet2Backbone  
 
 # -------------------------
 # Config

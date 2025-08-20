@@ -2,8 +2,8 @@ import torch
 import h5py
 import numpy as np
 import cv2
-from tracker import Tracker, world_to_image, draw_tracks
-from final_model import FinalRadarModel, load_mmwave_file  
+from Product.Tracking.tracker import Tracker, world_to_image, draw_tracks
+from Product.final_model import FinalRadarModel, load_mmwave_file  
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 H5_PATH = "RadarScenes/data/sequence_148/radar_data.h5"
