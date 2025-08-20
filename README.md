@@ -7,8 +7,14 @@
 **Internship Project @ Actia Engineering Services**  
 
 Advanced Driver Assistance System (ADAS) leveraging **mmWave radar fusion** for object detection, tracking, and scene understanding.
+---
+
+## NOTE
+
+This internship is devided into two parts: Product part and Research part
 
 ---
+## Product part
 
 ## Problem
 
@@ -48,7 +54,11 @@ Below is the proposed workflow and the models I plan to explore, based on review
 ![Workflow](./Img/Workflow.png)
 
 ---
+## Research part
 
+Working on it 🔍
+
+---
 ## Current Status
 
-Working on optimizing the Classification head.
+Working on the research part.
