@@ -9,13 +9,6 @@
 Advanced Driver Assistance System (ADAS) leveraging **mmWave radar fusion** for object detection, tracking, and scene understanding.
 ---
 
-## NOTE
-
-This internship is devided into two parts: Product part and Research part
-
----
-## Product part
-
 ## Problem
 
 Single radar-based systems in autonomous vehicles have a **narrow field of view**, limiting situational awareness.
@@ -52,13 +45,3 @@ You can find and download the dataset here:
 Below is the proposed workflow and the models I plan to explore, based on reviewing multiple research papers and comparing results:
 
 ![Workflow](./Img/Workflow.png)
-
----
-## Research part
-
-Working on it 🔍
-
----
-## Current Status
-
-Working on the research part.
