@@ -45,3 +45,27 @@ You can find and download the dataset here:
 Below is the proposed workflow and the models I plan to explore, based on reviewing multiple research papers and comparing results:
 
 ![Workflow](./Img/Workflow.png)
+
+---
+
+# Usage
+
+## 1. Clone this repo
+## 2. Download the RadarScenes Dataset from the link provided.
+## 3. Data preparation
+Run the following files in order:
+GroupOdometryIndex.py -> DataPreparation.py -> DataAugmentation.py -> MixData.py <br>
+GroupOdometryIndex : To Group the the radar records by odmetting index <br>
+DataPreparation: To delete the static data, filter by velocity and normlize the data <br>
+DataAugmentation: To handle class imbalance <br>
+MixData: To mix the generated data with the real existing data <br>
+## 4. Early fusion
+Run the following file for the radars early fusion technique: early_fusion.py <br>
+## 5. Feature extraction
+Run the followin files: train_pointnetpp.py -> precompute_features.py <br>
+train_pointnetpp: To train the PointNet++ backbone model and save it. <br>
+precompute_features: to extract the features using the traned model. <br>
+## 6. Classification and velocity prediction
+Run the followin file to train the votenet head: train_votenet_head. py <br>
+## 7. Full pipeline
+Run pipeline.py for the full pipeline execution. <br>

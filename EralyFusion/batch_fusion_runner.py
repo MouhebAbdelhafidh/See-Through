@@ -10,7 +10,7 @@ error_log_file = "failed_log.json"
 
 # Fusion parameters
 radius = 0.5
-weights = "0:1.0"  # Example, adjust as needed
+weights = "0:1.0"  
 
 # Load already fused files
 fused_set = set()
